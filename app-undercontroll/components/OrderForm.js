@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -11,6 +11,9 @@ import {
 import Feather from "@expo/vector-icons/Feather";
 import { router } from "expo-router";
 import AppShell from "./AppShell";
+import DateField from "./DateField";
+import NativeSelect from "./NativeSelect";
+import ScreenHeader from "./ScreenHeader";
 import { getAxiosErrorMessage } from "../providers/api";
 import { componentService } from "../services/ComponentService";
 import { demandService } from "../services/DemandService";
@@ -45,57 +48,7 @@ function Section({ title, action, onAction, children, highlight }) {
 }
 
 function Chevron({ direction = "down" }) {
-  return (
-    <View style={styles.chevronBox}>
-      <View style={[styles.chevronLeft, direction === "up" && styles.chevronUpLeft]} />
-      <View style={[styles.chevronRight, direction === "up" && styles.chevronUpRight]} />
-    </View>
-  );
-}
-
-function getStatusColor(status) {
-  if (status === "Concluído") return "#25cf79";
-  if (status === "Entregue") return "#099ab3";
-  if (status === "Pendente") return "#f2c94c";
-  return "#f2994a";
-}
-
-function SelectField({ label, value, options, onSelect, dark, statusIndicator }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <View style={styles.field}>
-      {!!label && <Text style={styles.fieldLabel}>{label}</Text>}
-      <Pressable
-        onPress={() => setOpen((current) => !current)}
-        style={[styles.fieldBox, dark && styles.darkSelect]}
-      >
-        <View style={styles.selectValueRow}>
-          {statusIndicator && <View style={[styles.statusDot, { backgroundColor: getStatusColor(value) }]} />}
-          <Text style={[styles.fieldValue, dark && styles.darkSelectValue]}>{value}</Text>
-        </View>
-        <Chevron direction={open ? "up" : "down"} />
-      </Pressable>
-      {open && (
-        <View style={[styles.options, dark && styles.darkOptions]}>
-          {options.map((option) => (
-            <Pressable
-              key={option}
-              onPress={() => {
-                onSelect(option);
-                setOpen(false);
-              }}
-              style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
-            >
-              <View style={styles.optionContent}>
-                {statusIndicator && <View style={[styles.statusDot, { backgroundColor: getStatusColor(option) }]} />}
-                <Text style={[styles.optionText, dark && styles.darkOptionText]}>{option}</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      )}
-    </View>
-  );
+  return <Feather color="#667994" name={direction === "up" ? "chevron-up" : "chevron-down"} size={22} />;
 }
 
 function Field({
@@ -105,23 +58,10 @@ function Field({
   multiline,
   placeholder,
   editable = true,
-  select,
-  options,
-  onSelect,
   audio,
   onAudioPress,
   keyboardType,
 }) {
-  if (select) {
-    return (
-      <SelectField
-        label={label}
-        onSelect={onSelect || (() => {})}
-        options={options}
-        value={value}
-      />
-    );
-  }
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -185,9 +125,7 @@ function emptyPart() {
 function todayBR(offsetDays = 0) {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${day}/${month}/${date.getFullYear()}`;
+  return formatDateBR(date);
 }
 
 function matchesClient(client, query) {
@@ -203,6 +141,13 @@ function matchesClient(client, query) {
     email.includes(text) ||
     (!!digits && (phone.includes(digits) || cpf.includes(digits)))
   );
+}
+
+function matchesComponent(component, query) {
+  const text = query.trim().toLowerCase();
+  if (!text) return true;
+  const haystack = `${component.item || ""} ${component.description || ""} ${component.brand || ""}`.toLowerCase();
+  return haystack.includes(text);
 }
 
 function parseNumber(value) {
@@ -227,7 +172,6 @@ export default function OrderForm({ edit, orderId }) {
   const [clientSearch, setClientSearch] = useState("");
   const [showClientSuggestions, setShowClientSuggestions] = useState(false);
   const [components, setComponents] = useState([]);
-  const [partSuggestions, setPartSuggestions] = useState([]);
   const [activePartIndex, setActivePartIndex] = useState(null);
   const [note, setNote] = useState("");
   const [technicalNote, setTechnicalNote] = useState("");
@@ -237,7 +181,6 @@ export default function OrderForm({ edit, orderId }) {
   const [discount, setDiscount] = useState("0");
   const [receivedAt, setReceivedAt] = useState(todayBR());
   const [deadline, setDeadline] = useState(todayBR(7));
-  const partSearchRequest = useRef(0);
 
   const laborSubtotal = devices.reduce((total, device) => total + parseNumber(device.labor), 0);
   const partsSubtotal = parts.reduce((total, part) => total + parseNumber(part.price) * (Number(part.quantity) || 0), 0);
@@ -248,6 +191,12 @@ export default function OrderForm({ edit, orderId }) {
     if (!clientSearch.trim() || selectedClient) return [];
     return clients.filter((client) => matchesClient(client, clientSearch)).slice(0, 8);
   }, [clientSearch, clients, selectedClient]);
+
+  const partSuggestions = useMemo(() => {
+    if (activePartIndex == null) return [];
+    const query = parts[activePartIndex]?.search || "";
+    return components.filter((component) => matchesComponent(component, query)).slice(0, 8);
+  }, [activePartIndex, parts, components]);
 
   useEffect(() => {
     if (!feedback) return undefined;
@@ -267,7 +216,6 @@ export default function OrderForm({ edit, orderId }) {
         if (!active) return;
         setClients(customers);
         setComponents(stock);
-        setPartSuggestions(stock);
       } catch (error) {
         if (active) setFeedback(getAxiosErrorMessage(error));
       }
@@ -340,36 +288,12 @@ export default function OrderForm({ edit, orderId }) {
     };
   }, [edit, orderId]);
 
-  useEffect(() => {
-    if (activePartIndex == null) return undefined;
-    const query = parts[activePartIndex]?.search?.trim() || "";
-    const requestId = ++partSearchRequest.current;
-    const timeout = setTimeout(async () => {
-      try {
-        const results = query
-          ? await componentService.list({ name: query })
-          : components;
-        if (partSearchRequest.current !== requestId) return;
-        setPartSuggestions(results);
-      } catch {
-        const local = components.filter((component) => {
-          const haystack = `${component.item || ""} ${component.description || ""} ${component.brand || ""}`.toLowerCase();
-          return haystack.includes(query.toLowerCase());
-        });
-        if (partSearchRequest.current !== requestId) return;
-        setPartSuggestions(local);
-      }
-    }, 300);
-
-    return () => clearTimeout(timeout);
-  }, [activePartIndex, parts, components]);
-
   function updateDevice(key, field, value) {
     setDevices((current) => current.map((device) => (device.key === key ? { ...device, [field]: value } : device)));
   }
 
-  function updatePart(key, field, value) {
-    setParts((current) => current.map((part) => (part.key === key ? { ...part, [field]: value } : part)));
+  function updatePart(key, patch) {
+    setParts((current) => current.map((part) => (part.key === key ? { ...part, ...patch } : part)));
   }
 
   function addDevice() {
@@ -378,9 +302,10 @@ export default function OrderForm({ edit, orderId }) {
   }
 
   function addPart() {
-    const next = emptyPart();
-    setParts((current) => [...current, next]);
-    setActivePartIndex(parts.length);
+    setParts((current) => {
+      setActivePartIndex(current.length);
+      return [...current, emptyPart()];
+    });
     setFeedback("Nova peça adicionada ao orçamento.");
   }
 
@@ -399,10 +324,12 @@ export default function OrderForm({ edit, orderId }) {
   }
 
   function selectComponent(partKey, component, index) {
-    updatePart(partKey, "componentId", component.id);
-    updatePart(partKey, "name", component.item || "");
-    updatePart(partKey, "search", component.item || "");
-    updatePart(partKey, "price", component.price ?? 0);
+    updatePart(partKey, {
+      componentId: component.id,
+      name: component.item || "",
+      search: component.item || "",
+      price: component.price ?? 0,
+    });
     setActivePartIndex(null);
     setFeedback(`Peça ${index + 1} selecionada do estoque.`);
   }
@@ -476,19 +403,12 @@ export default function OrderForm({ edit, orderId }) {
 
   return (
     <AppShell>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {edit ? `Editar Ordem de Serviço #${orderId}` : "Nova Ordem de Serviço"}
-        </Text>
-        {edit && <Text style={styles.badge}>Edição</Text>}
-        <Pressable
-          accessibilityLabel="Fechar ordem de serviço"
-          onPress={() => router.back()}
-          style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.close}>×</Text>
-        </Pressable>
-      </View>
+      <ScreenHeader
+        badge={edit ? "Edição" : undefined}
+        closeLabel="Fechar ordem de serviço"
+        onClose={() => router.back()}
+        title={edit ? `Editar Ordem de Serviço #${orderId}` : "Nova Ordem de Serviço"}
+      />
       {loading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator color="#ef7f19" />
@@ -502,9 +422,8 @@ export default function OrderForm({ edit, orderId }) {
         >
           {edit && (
             <Section title="Status da Ordem">
-              <SelectField
+              <NativeSelect
                 dark
-                label=""
                 onSelect={setStatus}
                 options={ORDER_STATUS_OPTIONS}
                 statusIndicator
@@ -575,11 +494,10 @@ export default function OrderForm({ edit, orderId }) {
                         <Field label="Modelo" onChangeText={(value) => updateDevice(device.key, "model", value)} value={device.model} />
                       </View>
                       <View style={styles.columns}>
-                        <Field
+                        <NativeSelect
                           label="Voltagem"
                           onSelect={(value) => updateDevice(device.key, "voltage", value)}
                           options={["127V", "220V"]}
-                          select
                           value={device.voltage}
                         />
                         <Field label="Nº de Série" onChangeText={(value) => updateDevice(device.key, "serial", value)} value={device.serial} />
@@ -628,9 +546,11 @@ export default function OrderForm({ edit, orderId }) {
                 <View style={styles.fieldBox}>
                   <TextInput
                     onChangeText={(value) => {
-                      updatePart(part.key, "search", value);
-                      updatePart(part.key, "name", value);
-                      updatePart(part.key, "componentId", null);
+                      updatePart(part.key, {
+                        search: value,
+                        name: value,
+                        componentId: null,
+                      });
                       setActivePartIndex(index);
                     }}
                     onFocus={() => setActivePartIndex(index)}
@@ -642,7 +562,7 @@ export default function OrderForm({ edit, orderId }) {
                 </View>
                 {activePartIndex === index && partSuggestions.length > 0 && (
                   <View style={styles.suggestions}>
-                    {partSuggestions.slice(0, 8).map((component) => (
+                    {partSuggestions.map((component) => (
                       <Pressable
                         key={component.id}
                         onPress={() => selectComponent(part.key, component, index)}
@@ -656,11 +576,14 @@ export default function OrderForm({ edit, orderId }) {
                     ))}
                   </View>
                 )}
+                {activePartIndex === index && partSuggestions.length === 0 && (
+                  <Text style={styles.emptyParts}>Nenhum componente encontrado.</Text>
+                )}
                 <View style={styles.partTop}>
                   <Text style={styles.quantityLabel}>Qtd</Text>
                   <TextInput
                     keyboardType="number-pad"
-                    onChangeText={(value) => updatePart(part.key, "quantity", value.replace(/\D/g, ""))}
+                    onChangeText={(value) => updatePart(part.key, { quantity: value.replace(/\D/g, "") })}
                     style={styles.quantityInput}
                     value={String(part.quantity ?? "")}
                   />
@@ -675,11 +598,10 @@ export default function OrderForm({ edit, orderId }) {
           </Section>
           <Section title="Garantia e Desconto">
             <View style={styles.columns}>
-              <Field
+              <NativeSelect
                 label="Garantia"
                 onSelect={setWarranty}
                 options={["30 dias", "60 dias", "90 dias"]}
-                select
                 value={warranty}
               />
               <Field
@@ -690,16 +612,16 @@ export default function OrderForm({ edit, orderId }) {
               />
             </View>
           </Section>
+          <Section title="Datas">
+            <DateField label="Data de Recebimento" onChange={setReceivedAt} value={receivedAt} />
+            <DateField label="Data de Retirada" onChange={setDeadline} value={deadline} />
+          </Section>
           <Section highlight title="Resumo Financeiro">
             <Summary label="Valor da Mão de Obra" value={formatCurrency(laborSubtotal)} />
             <Summary label="Valor das Peças" value={formatCurrency(partsSubtotal)} />
             <Summary label="Desconto" red value={`- ${formatCurrency(discountValue)}`} />
             <View style={styles.rule} />
             <Summary label="Valor Total da OS" total value={formatCurrency(orderTotal)} />
-          </Section>
-          <Section title="Datas">
-            <Field label="Data de Recebimento" onChangeText={setReceivedAt} placeholder="dd/mm/aaaa" value={receivedAt} />
-            <Field label="Data de Retirada" onChangeText={setDeadline} placeholder="dd/mm/aaaa" value={deadline} />
           </Section>
         </ScrollView>
       )}
@@ -730,39 +652,7 @@ export default function OrderForm({ edit, orderId }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    alignItems: "center",
-    backgroundColor: "#092542",
-    flexDirection: "row",
-    justifyContent: "center",
-    minHeight: 76,
-    paddingHorizontal: 58,
-  },
-  headerTitle: {
-    color: "#fff",
-    fontSize: 19,
-    fontWeight: "800",
-    textAlign: "center",
-  },
-  closeButton: {
-    alignItems: "center",
-    height: 56,
-    justifyContent: "center",
-    position: "absolute",
-    right: 8,
-    width: 56,
-  },
-  close: { color: "#fff", fontSize: 40, lineHeight: 44 },
-  badge: {
-    backgroundColor: "#0645b4",
-    borderRadius: 6,
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
-    marginLeft: 16,
-    padding: 8,
-  },
-  content: { padding: 20, paddingBottom: 125 },
+  content: { padding: 20, paddingBottom: 36 },
   loadingBox: { alignItems: "center", flex: 1, justifyContent: "center" },
   loadingText: { color: "#667994", fontSize: 15, marginTop: 12 },
   toast: {
@@ -819,31 +709,8 @@ const styles = StyleSheet.create({
   audioFieldBox: { backgroundColor: "#f4f7fb", borderColor: "#dce4ee", minHeight: 112, paddingBottom: 0, paddingTop: 10 },
   audioFieldValue: { color: "#667994", minHeight: 80, textAlignVertical: "top" },
   audioButton: { alignItems: "center", backgroundColor: "#ffffff", borderColor: "#dce4ee", borderRadius: 14, borderWidth: 2, height: 56, justifyContent: "center", marginLeft: 10, marginTop: 2, width: 56 },
-  selectValueRow: { alignItems: "center", flex: 1, flexDirection: "row" },
-  statusDot: { borderRadius: 6, height: 12, marginRight: 10, width: 12 },
   multiline: { alignItems: "flex-start", minHeight: 108 },
-  options: {
-    backgroundColor: "#fff",
-    borderColor: "#dce4ee",
-    borderRadius: 10,
-    borderWidth: 1,
-    elevation: 4,
-    marginTop: 4,
-    overflow: "hidden",
-    shadowColor: "#092542",
-    shadowOffset: { height: 3, width: 0 },
-    shadowOpacity: 0.16,
-    shadowRadius: 6,
-  },
-  option: {
-    borderBottomColor: "#eef2f6",
-    borderBottomWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  optionContent: { alignItems: "center", flexDirection: "row" },
   optionPressed: { backgroundColor: "#f4f7fb" },
-  optionText: { color: "#092542", fontSize: 15 },
   suggestions: {
     backgroundColor: "#fff",
     borderColor: "#dce4ee",
@@ -862,34 +729,6 @@ const styles = StyleSheet.create({
   },
   suggestionTitle: { color: "#092542", fontSize: 15, fontWeight: "700" },
   suggestionMeta: { color: "#667994", fontSize: 12, marginTop: 4 },
-  darkSelect: { backgroundColor: "#092542", borderColor: "#092542" },
-  darkSelectValue: { color: "#fff", fontWeight: "800" },
-  darkOptions: { backgroundColor: "#092542", borderColor: "#274563" },
-  darkOptionText: { color: "#fff" },
-  chevronBox: {
-    alignItems: "center",
-    height: 30,
-    justifyContent: "center",
-    width: 28,
-  },
-  chevronLeft: {
-    backgroundColor: "#667994",
-    height: 3,
-    left: 4,
-    position: "absolute",
-    transform: [{ rotate: "45deg" }],
-    width: 13,
-  },
-  chevronRight: {
-    backgroundColor: "#667994",
-    height: 3,
-    position: "absolute",
-    right: 2,
-    transform: [{ rotate: "-45deg" }],
-    width: 13,
-  },
-  chevronUpLeft: { transform: [{ rotate: "-45deg" }] },
-  chevronUpRight: { transform: [{ rotate: "45deg" }] },
   deviceCard: { borderBottomColor: "#dce4ee", borderBottomWidth: 1, marginBottom: 18, paddingBottom: 4 },
   deviceHeading: {
     alignItems: "center",
@@ -923,7 +762,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 14,
   },
-  emptyParts: { color: "#667994", fontSize: 14, marginBottom: 8 },
+  emptyParts: { color: "#667994", fontSize: 14, marginBottom: 8, marginTop: 8 },
   part: {
     backgroundColor: "#f4f7fb",
     borderColor: "#dce4ee",

@@ -26,6 +26,11 @@ export function formatAppliance(item) {
 
 export function formatDateBR(value) {
   if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const day = String(value.getDate()).padStart(2, "0");
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    return `${day}/${month}/${value.getFullYear()}`;
+  }
   const text = String(value);
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(text)) return text;
   const iso = text.slice(0, 10);
