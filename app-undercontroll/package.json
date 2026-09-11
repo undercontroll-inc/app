@@ -23,7 +23,17 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "start:dev": "expo start",
+    "ios:dev": "expo start --ios",
+    "android:dev": "expo start --android",
+    "mock:json": "bun ./mock/server.js",
+    "start:json": "bun ./mock/with-app.js",
+    "ios:json": "bun ./mock/with-app.js --ios",
+    "android:json": "bun ./mock/with-app.js --android"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "json-server": "0.17.4"
+  }
 }

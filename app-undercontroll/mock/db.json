@@ -1,0 +1,303 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Admin",
+      "email": "admin@pelluci.com",
+      "lastName": "Pelluci",
+      "address": "Rua das Oficinas, 100",
+      "cpf": "00000000000",
+      "CEP": "01000-000",
+      "phone": "11988880000",
+      "avatarUrl": null,
+      "hasWhatsApp": true,
+      "alreadyRecurrent": false,
+      "inFirstLogin": false,
+      "userType": "ADMINISTRATOR"
+    },
+    {
+      "id": 2,
+      "name": "Maria",
+      "email": "maria.silva@email.com",
+      "lastName": "Silva",
+      "address": "Av. Paulista, 1200",
+      "cpf": "12345678901",
+      "CEP": "01310-100",
+      "phone": "11987654321",
+      "avatarUrl": null,
+      "hasWhatsApp": true,
+      "alreadyRecurrent": true,
+      "inFirstLogin": false,
+      "userType": "CUSTOMER"
+    },
+    {
+      "id": 3,
+      "name": "João",
+      "email": "joao.santos@email.com",
+      "lastName": "Santos",
+      "address": "Rua Augusta, 45",
+      "cpf": "98765432100",
+      "CEP": "01305-000",
+      "phone": "11976543210",
+      "avatarUrl": null,
+      "hasWhatsApp": false,
+      "alreadyRecurrent": false,
+      "inFirstLogin": false,
+      "userType": "CUSTOMER"
+    },
+    {
+      "id": 4,
+      "name": "Ana",
+      "email": "ana.costa@email.com",
+      "lastName": "Costa",
+      "address": "Rua Harmonia, 88",
+      "cpf": "11122233344",
+      "CEP": "05435-000",
+      "phone": "11965432109",
+      "avatarUrl": null,
+      "hasWhatsApp": true,
+      "alreadyRecurrent": true,
+      "inFirstLogin": false,
+      "userType": "CUSTOMER"
+    }
+  ],
+  "components": [
+    {
+      "id": 10,
+      "item": "Compressor 1/4 HP",
+      "description": "Compressor para refrigerador duplex",
+      "brand": "Embraco",
+      "price": 420,
+      "quantity": 6,
+      "supplier": "FrioSul",
+      "category": "Refrigeração"
+    },
+    {
+      "id": 11,
+      "item": "Placa eletrônica",
+      "description": "Placa de potência lava e seca",
+      "brand": "Brastemp",
+      "price": 280,
+      "quantity": 4,
+      "supplier": "Peças Brasil",
+      "category": "Eletrônica"
+    },
+    {
+      "id": 12,
+      "item": "Gás R134a",
+      "description": "Carga de gás 750g",
+      "brand": "Chemours",
+      "price": 95,
+      "quantity": 20,
+      "supplier": "FrioSul",
+      "category": "Gases"
+    },
+    {
+      "id": 13,
+      "item": "Filtro secador",
+      "description": "Filtro 15g soldável",
+      "brand": "Danfoss",
+      "price": 38,
+      "quantity": 15,
+      "supplier": "FrioSul",
+      "category": "Refrigeração"
+    },
+    {
+      "id": 14,
+      "item": "Capacitor 45uF",
+      "description": "Capacitor de partida 45uF 250V",
+      "brand": "Weg",
+      "price": 32,
+      "quantity": 12,
+      "supplier": "Elétrica Centro",
+      "category": "Elétrica"
+    }
+  ],
+  "orders": [
+    {
+      "id": 101,
+      "user": {
+        "id": 2,
+        "name": "Maria",
+        "email": "maria.silva@email.com",
+        "lastName": "Silva",
+        "address": "Av. Paulista, 1200",
+        "cpf": "12345678901",
+        "CEP": "01310-100",
+        "phone": "11987654321",
+        "avatarUrl": null,
+        "hasWhatsApp": true,
+        "alreadyRecurrent": true,
+        "inFirstLogin": false,
+        "userType": "CUSTOMER"
+      },
+      "appliances": [
+        {
+          "id": 1,
+          "imageUrl": null,
+          "model": "CRM56",
+          "type": "Geladeira",
+          "brand": "Consul",
+          "volt": "127V",
+          "series": "GL-88421",
+          "laborValue": 180,
+          "completedAt": null
+        }
+      ],
+      "parts": [
+        {
+          "id": 10,
+          "item": "Compressor 1/4 HP",
+          "description": "Compressor para refrigerador duplex",
+          "brand": "Embraco",
+          "price": 420,
+          "quantity": 6,
+          "supplier": "FrioSul",
+          "category": "Refrigeração"
+        }
+      ],
+      "partsTotal": 420,
+      "laborTotal": 180,
+      "discount": 0,
+      "totalValue": 600,
+      "receivedAt": "2026-09-02",
+      "deadline": "2026-09-09",
+      "nf": null,
+      "haveReturnGuarantee": true,
+      "customerDescription": "Não está gelando na parte de baixo.",
+      "technicalDescription": "Compressor com ruído excessivo.",
+      "status": "PENDING",
+      "updatedAt": "2026-09-02T10:00:00"
+    },
+    {
+      "id": 102,
+      "user": {
+        "id": 3,
+        "name": "João",
+        "email": "joao.santos@email.com",
+        "lastName": "Santos",
+        "address": "Rua Augusta, 45",
+        "cpf": "98765432100",
+        "CEP": "01305-000",
+        "phone": "11976543210",
+        "avatarUrl": null,
+        "hasWhatsApp": false,
+        "alreadyRecurrent": false,
+        "inFirstLogin": false,
+        "userType": "CUSTOMER"
+      },
+      "appliances": [
+        {
+          "id": 2,
+          "imageUrl": null,
+          "model": "BWN15A",
+          "type": "Máquina de lavar",
+          "brand": "Brastemp",
+          "volt": "220V",
+          "series": "LS-11029",
+          "laborValue": 150,
+          "completedAt": null
+        }
+      ],
+      "parts": [
+        {
+          "id": 11,
+          "item": "Placa eletrônica",
+          "description": "Placa de potência lava e seca",
+          "brand": "Brastemp",
+          "price": 280,
+          "quantity": 4,
+          "supplier": "Peças Brasil",
+          "category": "Eletrônica"
+        }
+      ],
+      "partsTotal": 280,
+      "laborTotal": 150,
+      "discount": 20,
+      "totalValue": 410,
+      "receivedAt": "2026-09-04",
+      "deadline": "2026-09-11",
+      "nf": null,
+      "haveReturnGuarantee": true,
+      "customerDescription": "Não liga, só pisca o painel.",
+      "technicalDescription": "Placa com trilha queimada.",
+      "status": "IN_ANALYSIS",
+      "updatedAt": "2026-09-05T14:30:00"
+    },
+    {
+      "id": 103,
+      "user": {
+        "id": 4,
+        "name": "Ana",
+        "email": "ana.costa@email.com",
+        "lastName": "Costa",
+        "address": "Rua Harmonia, 88",
+        "cpf": "11122233344",
+        "CEP": "05435-000",
+        "phone": "11965432109",
+        "avatarUrl": null,
+        "hasWhatsApp": true,
+        "alreadyRecurrent": true,
+        "inFirstLogin": false,
+        "userType": "CUSTOMER"
+      },
+      "appliances": [
+        {
+          "id": 3,
+          "imageUrl": null,
+          "model": "MHE41",
+          "type": "Micro-ondas",
+          "brand": "Electrolux",
+          "volt": "127V",
+          "series": "MW-55210",
+          "laborValue": 90,
+          "completedAt": "2026-09-07T16:00:00"
+        }
+      ],
+      "parts": [
+        {
+          "id": 14,
+          "item": "Capacitor 45uF",
+          "description": "Capacitor de partida 45uF 250V",
+          "brand": "Weg",
+          "price": 32,
+          "quantity": 12,
+          "supplier": "Elétrica Centro",
+          "category": "Elétrica"
+        }
+      ],
+      "partsTotal": 32,
+      "laborTotal": 90,
+      "discount": 0,
+      "totalValue": 122,
+      "receivedAt": "2026-09-01",
+      "deadline": "2026-09-06",
+      "nf": "NF-4412",
+      "haveReturnGuarantee": true,
+      "customerDescription": "Estala e não esquenta.",
+      "technicalDescription": "Capacitor de alta tensão substituído.",
+      "status": "COMPLETED",
+      "updatedAt": "2026-09-07T16:00:00"
+    }
+  ],
+  "demands": [
+    {
+      "id": 1,
+      "componentId": 10,
+      "orderId": 101,
+      "quantity": 1
+    },
+    {
+      "id": 2,
+      "componentId": 11,
+      "orderId": 102,
+      "quantity": 1
+    },
+    {
+      "id": 3,
+      "componentId": 14,
+      "orderId": 103,
+      "quantity": 1
+    }
+  ]
+}

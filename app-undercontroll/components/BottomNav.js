@@ -5,10 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const items = [
   { label: "Consertos", icon: "tool", route: "/orders" },
-  { label: "Estoque", icon: "package" },
-  { label: "Clientes", icon: "users" },
-  { label: "Dashboard", icon: "pie-chart" },
-  { label: "Ang AI", icon: "zap" },
+  { label: "Estoque", icon: "package", route: "/stock" },
+  { label: "Clientes", icon: "users", route: "/clients" },
+  { label: "Dashboard", icon: "pie-chart", route: "/dashboard" },
+  { label: "Ang AI", icon: "zap", route: "/chat" },
 ];
 
 export default function BottomNav() {
