@@ -25,10 +25,10 @@ function RootNavigator() {
 
   useEffect(() => {
     if (loading || splashVisible) return;
-    const inOrders = segments[0] === "orders";
-    if (isAuthenticated && !inOrders) {
+    const inTabs = segments[0] === "(tabs)";
+    if (isAuthenticated && !inTabs) {
       router.replace("/orders");
-    } else if (!isAuthenticated && inOrders) {
+    } else if (!isAuthenticated && inTabs) {
       router.replace("/");
     }
   }, [loading, splashVisible, isAuthenticated, segments, router]);

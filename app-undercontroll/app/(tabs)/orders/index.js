@@ -1,15 +1,14 @@
 import { useCallback, useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AppShell from "../../components/AppShell";
-import BottomNav from "../../components/BottomNav";
-import OrderCard from "../../components/OrderCard";
-import { useAuth } from "../../contexts/AuthContext";
-import { getAxiosErrorMessage } from "../../providers/api";
-import { orderService } from "../../services/OrderService";
-import { toOrderCard } from "../../utils/orders";
+import AppShell from "../../../components/AppShell";
+import OrderCard from "../../../components/OrderCard";
+import { useAuth } from "../../../contexts/AuthContext";
+import { getAxiosErrorMessage } from "../../../providers/api";
+import { orderService } from "../../../services/OrderService";
+import { toOrderCard } from "../../../utils/orders";
 
 const filters = ["Todos", "Pendentes", "Em análise", "Concluídos"];
 
@@ -54,6 +53,7 @@ export default function OrdersScreen() {
   });
 
   const displayName = user?.name || "Admin";
+  const fabBottom = Platform.OS === "ios" ? 16 + Math.max(insets.bottom, 8) : 22;
 
   async function handleLogout() {
     setProfileVisible(false);
@@ -64,7 +64,7 @@ export default function OrdersScreen() {
   return (
     <AppShell>
       <View style={styles.header}>
-        <Image source={require("../../assets/logo_pelluci.png")} resizeMode="contain" style={styles.logo} />
+        <Image source={require("../../../assets/logo_pelluci.png")} resizeMode="contain" style={styles.logo} />
         <Pressable accessibilityLabel="Abrir opções do perfil" onPress={() => setProfileMenuVisible((visible) => !visible)} style={styles.admin}>
           <Text style={styles.adminName}>{displayName}</Text>
           <View style={styles.avatar}>
@@ -105,47 +105,48 @@ export default function OrdersScreen() {
           </View>
         </View>
       </Modal>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Ordens de Serviço</Text>
-        <View style={styles.search}>
-          <Text style={styles.searchIcon}>⌕</Text>
-          <TextInput onChangeText={setSearch} placeholder="Pesquise por OS ou cliente..." placeholderTextColor="#667994" style={styles.searchInput} value={search} />
-        </View>
-        <View style={styles.filters}>
-          {filters.map((item) => (
-            <Pressable key={item} onPress={() => setSelectedFilter(item)} style={[styles.filter, selectedFilter === item && styles.activeFilter]}>
-              <Text style={[styles.filterText, selectedFilter === item && styles.activeFilterText]}>{item}</Text>
-            </Pressable>
+      <View collapsable={false} style={styles.scrollWrap}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.title}>Ordens de Serviço</Text>
+          <View style={styles.search}>
+            <Text style={styles.searchIcon}>⌕</Text>
+            <TextInput onChangeText={setSearch} placeholder="Pesquise por OS ou cliente..." placeholderTextColor="#667994" style={styles.searchInput} value={search} />
+          </View>
+          <View style={styles.filters}>
+            {filters.map((item) => (
+              <Pressable key={item} onPress={() => setSelectedFilter(item)} style={[styles.filter, selectedFilter === item && styles.activeFilter]}>
+                <Text style={[styles.filterText, selectedFilter === item && styles.activeFilterText]}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {loading && (
+            <View style={styles.state}>
+              <ActivityIndicator color="#ef7f19" />
+              <Text style={styles.stateText}>Carregando ordens...</Text>
+            </View>
+          )}
+          {!loading && !!error && (
+            <View style={styles.state}>
+              <Text style={styles.errorText}>{error}</Text>
+              <Pressable onPress={loadOrders} style={styles.retry}>
+                <Text style={styles.retryText}>Tentar novamente</Text>
+              </Pressable>
+            </View>
+          )}
+          {!loading && !error && visibleOrders.length === 0 && (
+            <Text style={styles.empty}>Nenhuma ordem de serviço encontrada.</Text>
+          )}
+          {!loading && !error && visibleOrders.map((order) => (
+            <OrderCard key={order.id} order={order} onPress={() => router.push(`/orders/${order.id}`)} />
           ))}
-        </View>
-        {loading && (
-          <View style={styles.state}>
-            <ActivityIndicator color="#ef7f19" />
-            <Text style={styles.stateText}>Carregando ordens...</Text>
-          </View>
-        )}
-        {!loading && !!error && (
-          <View style={styles.state}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Pressable onPress={loadOrders} style={styles.retry}>
-              <Text style={styles.retryText}>Tentar novamente</Text>
-            </Pressable>
-          </View>
-        )}
-        {!loading && !error && visibleOrders.length === 0 && (
-          <Text style={styles.empty}>Nenhuma ordem de serviço encontrada.</Text>
-        )}
-        {!loading && !error && visibleOrders.map((order) => (
-          <OrderCard key={order.id} order={order} onPress={() => router.push(`/orders/${order.id}`)} />
-        ))}
-      </ScrollView>
+        </ScrollView>
+      </View>
       <Pressable
         onPress={() => router.push("/orders/new")}
-        style={({ pressed }) => [styles.newButton, { bottom: 88 + Math.max(insets.bottom, 8) }, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.newButton, { bottom: fabBottom }, pressed && styles.pressed]}
       >
         <Text style={styles.newButtonText}>＋ Nova O.S.</Text>
       </Pressable>
-      <BottomNav />
     </AppShell>
   );
 }
@@ -159,6 +160,7 @@ const styles = StyleSheet.create({
   profileMenu: { backgroundColor: "#123b5e", borderColor: "#2d638d", borderRadius: 8, borderWidth: 1, elevation: 6, position: "absolute", right: 26, top: 86, shadowColor: "#000", shadowOffset: { height: 3, width: 0 }, shadowOpacity: 0.25, shadowRadius: 6, width: 116 },
   profileMenuButton: { alignItems: "center", flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
   profileMenuText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  scrollWrap: { flex: 1 },
   content: { padding: 24, paddingBottom: 120 },
   title: { color: "#092542", fontSize: 32, fontWeight: "800", marginBottom: 26 },
   search: { alignItems: "center", borderColor: "#dce4ee", borderRadius: 14, borderWidth: 2, flexDirection: "row", height: 62, paddingHorizontal: 16 },

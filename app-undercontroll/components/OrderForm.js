@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,7 +9,8 @@ import {
   View,
 } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useTabBarVisibility } from "../contexts/TabBarVisibilityContext";
 import AppShell from "./AppShell";
 import DateField from "./DateField";
 import NativeSelect from "./NativeSelect";
@@ -162,6 +163,7 @@ function displayContact(value, fallback = "Não informado") {
 }
 
 export default function OrderForm({ edit, orderId }) {
+  const { setHidden } = useTabBarVisibility();
   const [status, setStatus] = useState("Pendente");
   const [collapsedDevices, setCollapsedDevices] = useState({});
   const [feedback, setFeedback] = useState("");
@@ -181,6 +183,13 @@ export default function OrderForm({ edit, orderId }) {
   const [discount, setDiscount] = useState("0");
   const [receivedAt, setReceivedAt] = useState(todayBR());
   const [deadline, setDeadline] = useState(todayBR(7));
+
+  useFocusEffect(
+    useCallback(() => {
+      setHidden(true);
+      return () => setHidden(false);
+    }, [setHidden]),
+  );
 
   const laborSubtotal = devices.reduce((total, device) => total + parseNumber(device.labor), 0);
   const partsSubtotal = parts.reduce((total, part) => total + parseNumber(part.price) * (Number(part.quantity) || 0), 0);

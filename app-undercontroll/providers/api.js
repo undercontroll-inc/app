@@ -7,7 +7,8 @@ function getBaseURL() {
     return process.env.EXPO_PUBLIC_API_URL;
   }
   const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
-  return `http://${host}:8080/v1/api`;
+  const port = process.env.EXPO_PUBLIC_API_PORT || "8080";
+  return `http://${host}:${port}/v1/api`;
 }
 
 const baseURL = getBaseURL();
