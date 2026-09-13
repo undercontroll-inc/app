@@ -5,7 +5,7 @@ export default function ScreenHeader({ title, badge, onClose, closeLabel = "Fech
   return (
     <View style={styles.header}>
       <View style={styles.copy}>
-        <Text numberOfLines={2} style={styles.title}>
+        <Text numberOfLines={1} style={styles.title}>
           {title}
         </Text>
         {!!badge && <Text style={styles.badge}>{badge}</Text>}
@@ -17,7 +17,7 @@ export default function ScreenHeader({ title, badge, onClose, closeLabel = "Fech
           onPress={onClose}
           style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
         >
-          <Feather color="#ffffff" name="x" size={26} />
+          <Feather color="#ffffff" name="x" size={22} />
         </Pressable>
       )}
     </View>
@@ -29,36 +29,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#092542",
     flexDirection: "row",
-    minHeight: 76,
+    minHeight: 52,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   copy: {
+    alignItems: "center",
     flex: 1,
-    paddingRight: 12,
+    flexDirection: "row",
+    gap: 8,
+    paddingRight: 8,
   },
   title: {
     color: "#fff",
-    fontSize: 19,
+    flexShrink: 1,
+    fontSize: 17,
     fontWeight: "800",
   },
   badge: {
-    alignSelf: "flex-start",
     backgroundColor: "#0645b4",
     borderRadius: 6,
     color: "#fff",
     fontSize: 12,
     fontWeight: "700",
-    marginTop: 8,
     overflow: "hidden",
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: 3,
   },
   closeButton: {
     alignItems: "center",
-    height: 44,
+    height: 40,
     justifyContent: "center",
-    width: 44,
+    width: 40,
   },
   pressed: { opacity: 0.72 },
 });

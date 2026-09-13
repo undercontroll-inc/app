@@ -1,27 +1,36 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
-import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AppHeader from "../../../components/AppHeader";
 import AppShell from "../../../components/AppShell";
 import OrderCard from "../../../components/OrderCard";
-import { useAuth } from "../../../contexts/AuthContext";
+import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
 import { getAxiosErrorMessage } from "../../../providers/api";
 import { orderService } from "../../../services/OrderService";
-import { toOrderCard } from "../../../utils/orders";
+import { ORDER_STATUS_API, toOrderCard } from "../../../utils/orders";
 
 const filters = ["Todos", "Pendentes", "Em análise", "Concluídos"];
 
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
   const [search, setSearch] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("Todos");
-  const [profileMenuVisible, setProfileMenuVisible] = useState(false);
-  const [profileVisible, setProfileVisible] = useState(false);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const menu = useActionMenu();
 
   const loadOrders = useCallback(async () => {
     try {
@@ -42,148 +51,195 @@ export default function OrdersScreen() {
     }, [loadOrders]),
   );
 
-  const visibleOrders = orders.filter((order) => {
-    const matchesSearch = `${order.id} ${order.client} ${order.device}`.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter =
-      selectedFilter === "Todos" ||
-      (selectedFilter === "Pendentes" && order.status === "Pendente") ||
-      (selectedFilter === "Concluídos" && order.status === "Concluído") ||
-      order.status === selectedFilter;
-    return matchesSearch && matchesFilter;
-  });
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const matchesSearch = `${order.id} ${order.client} ${order.device}`
+          .toLowerCase()
+          .includes(search.toLowerCase());
+        const matchesFilter =
+          selectedFilter === "Todos" ||
+          (selectedFilter === "Pendentes" && order.status === "Pendente") ||
+          (selectedFilter === "Concluídos" && order.status === "Concluído") ||
+          order.status === selectedFilter;
+        return matchesSearch && matchesFilter;
+      }),
+    [orders, search, selectedFilter],
+  );
 
-  const displayName = user?.name || "Admin";
   const fabBottom = Platform.OS === "ios" ? 16 + Math.max(insets.bottom, 8) : 22;
 
-  async function handleLogout() {
-    setProfileVisible(false);
-    await logout();
-    router.replace("/");
+  function openNew() {
+    router.push("/orders/new");
+  }
+
+  function isCompleted(order) {
+    return order.status === "Concluído" || order.status === "Entregue";
+  }
+
+  function openOrderActions(order) {
+    const completed = isCompleted(order);
+    menu.show({
+      title: `OS #${order.id}`,
+      message: order.client,
+      options: [
+        {
+          label: completed ? "Marcar como pendente" : "Marcar como concluída",
+          onPress: () => setOrderCompleted(order, !completed),
+        },
+        {
+          label: "Excluir",
+          destructive: true,
+          onPress: () => deleteOrder(order),
+        },
+        { label: "Cancelar", cancel: true },
+      ],
+    });
+  }
+
+  async function setOrderCompleted(order, completed) {
+    const nextStatus = completed ? "Concluído" : "Pendente";
+    const previous = order.status;
+    setOrders((current) =>
+      current.map((item) => (item.id === order.id ? { ...item, status: nextStatus } : item)),
+    );
+    try {
+      await orderService.update(order.id, { status: ORDER_STATUS_API[nextStatus] });
+    } catch (err) {
+      setOrders((current) =>
+        current.map((item) => (item.id === order.id ? { ...item, status: previous } : item)),
+      );
+      setError(getAxiosErrorMessage(err));
+    }
+  }
+
+  async function deleteOrder(order) {
+    try {
+      await orderService.remove(order.id);
+      setOrders((current) => current.filter((item) => item.id !== order.id));
+    } catch (err) {
+      setError(getAxiosErrorMessage(err));
+    }
+  }
+
+  function renderEmpty() {
+    if (loading) {
+      return (
+        <View style={styles.state}>
+          <ActivityIndicator color="#ef7f19" />
+          <Text style={styles.stateText}>Carregando ordens...</Text>
+        </View>
+      );
+    }
+    if (error) {
+      return (
+        <View style={styles.state}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={loadOrders} style={styles.retry}>
+            <Text style={styles.retryText}>Tentar novamente</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return <Text style={styles.empty}>Nenhuma ordem de serviço encontrada.</Text>;
   }
 
   return (
     <AppShell>
-      <View style={styles.header}>
-        <Image source={require("../../../assets/logo_pelluci.png")} resizeMode="contain" style={styles.logo} />
-        <Pressable accessibilityLabel="Abrir opções do perfil" onPress={() => setProfileMenuVisible((visible) => !visible)} style={styles.admin}>
-          <Text style={styles.adminName}>{displayName}</Text>
-          <View style={styles.avatar}>
-            <Feather color="#ffffff" name="user" size={22} />
+      <AppHeader />
+      <FlatList
+        ListHeaderComponent={
+          <View>
+            <Text style={styles.title}>Ordens de Serviço</Text>
+            <View style={styles.search}>
+              <Feather color="#667994" name="search" size={18} />
+              <TextInput
+                onChangeText={setSearch}
+                placeholder="OS ou cliente"
+                placeholderTextColor="#667994"
+                style={styles.searchInput}
+                value={search}
+              />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters}>
+              {filters.map((item) => (
+                <Pressable
+                  key={item}
+                  onPress={() => setSelectedFilter(item)}
+                  style={[styles.filter, selectedFilter === item && styles.activeFilter]}
+                >
+                  <Text style={[styles.filterText, selectedFilter === item && styles.activeFilterText]}>{item}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
-        </Pressable>
-        {profileMenuVisible && (
-          <View style={styles.profileMenu}>
-            <Pressable
-              onPress={() => {
-                setProfileMenuVisible(false);
-                setProfileVisible(true);
-              }}
-              style={({ pressed }) => [styles.profileMenuButton, pressed && styles.pressed]}
-            >
-              <Feather color="#ffffff" name="log-out" size={17} />
-              <Text style={styles.profileMenuText}>Sair</Text>
-            </Pressable>
-          </View>
+        }
+        contentContainerStyle={styles.content}
+        data={loading || error ? [] : visibleOrders}
+        keyExtractor={(order) => order.id}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={renderEmpty}
+        renderItem={({ item }) => (
+          <OrderCard
+            onLongPress={() => openOrderActions(item)}
+            onPress={() => router.push(`/orders/${item.id}`)}
+            order={item}
+          />
         )}
-      </View>
-      <Modal animationType="fade" transparent visible={profileVisible} onRequestClose={() => setProfileVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.profileCard}>
-            <View style={styles.profileHeading}>
-              <View style={styles.logoutIcon}>
-                <Feather color="#ef4b43" name="log-out" size={24} />
-              </View>
-              <Text style={styles.profileTitle}>Sair da conta?</Text>
-            </View>
-            <Text style={styles.profileMessage}>Sua sessão será encerrada. Deseja continuar?</Text>
-            <Pressable onPress={handleLogout} style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}>
-              <Text style={styles.logoutText}>Sair da conta</Text>
-            </Pressable>
-            <Pressable onPress={() => setProfileVisible(false)} style={({ pressed }) => [styles.cancelProfileButton, pressed && styles.pressed]}>
-              <Text style={styles.cancelProfileText}>Cancelar</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-      <View collapsable={false} style={styles.scrollWrap}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Ordens de Serviço</Text>
-          <View style={styles.search}>
-            <Text style={styles.searchIcon}>⌕</Text>
-            <TextInput onChangeText={setSearch} placeholder="Pesquise por OS ou cliente..." placeholderTextColor="#667994" style={styles.searchInput} value={search} />
-          </View>
-          <View style={styles.filters}>
-            {filters.map((item) => (
-              <Pressable key={item} onPress={() => setSelectedFilter(item)} style={[styles.filter, selectedFilter === item && styles.activeFilter]}>
-                <Text style={[styles.filterText, selectedFilter === item && styles.activeFilterText]}>{item}</Text>
-              </Pressable>
-            ))}
-          </View>
-          {loading && (
-            <View style={styles.state}>
-              <ActivityIndicator color="#ef7f19" />
-              <Text style={styles.stateText}>Carregando ordens...</Text>
-            </View>
-          )}
-          {!loading && !!error && (
-            <View style={styles.state}>
-              <Text style={styles.errorText}>{error}</Text>
-              <Pressable onPress={loadOrders} style={styles.retry}>
-                <Text style={styles.retryText}>Tentar novamente</Text>
-              </Pressable>
-            </View>
-          )}
-          {!loading && !error && visibleOrders.length === 0 && (
-            <Text style={styles.empty}>Nenhuma ordem de serviço encontrada.</Text>
-          )}
-          {!loading && !error && visibleOrders.map((order) => (
-            <OrderCard key={order.id} order={order} onPress={() => router.push(`/orders/${order.id}`)} />
-          ))}
-        </ScrollView>
-      </View>
+      />
       <Pressable
-        onPress={() => router.push("/orders/new")}
+        onPress={openNew}
         style={({ pressed }) => [styles.newButton, { bottom: fabBottom }, pressed && styles.pressed]}
       >
         <Text style={styles.newButtonText}>＋ Nova O.S.</Text>
       </Pressable>
+      <ActionMenuSheet config={menu.config} onClose={menu.close} />
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { alignItems: "center", backgroundColor: "#092542", flexDirection: "row", justifyContent: "space-between", padding: 26, position: "relative", zIndex: 2 },
-  logo: { height: 54, width: 105 },
-  admin: { alignItems: "center", flexDirection: "row", gap: 12 },
-  adminName: { color: "#fff", fontSize: 16 },
-  avatar: { alignItems: "center", backgroundColor: "#ef7f19", borderColor: "#ffad65", borderRadius: 28, borderWidth: 2, height: 56, justifyContent: "center", width: 56 },
-  profileMenu: { backgroundColor: "#123b5e", borderColor: "#2d638d", borderRadius: 8, borderWidth: 1, elevation: 6, position: "absolute", right: 26, top: 86, shadowColor: "#000", shadowOffset: { height: 3, width: 0 }, shadowOpacity: 0.25, shadowRadius: 6, width: 116 },
-  profileMenuButton: { alignItems: "center", flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
-  profileMenuText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  scrollWrap: { flex: 1 },
-  content: { padding: 24, paddingBottom: 120 },
-  title: { color: "#092542", fontSize: 32, fontWeight: "800", marginBottom: 26 },
-  search: { alignItems: "center", borderColor: "#dce4ee", borderRadius: 14, borderWidth: 2, flexDirection: "row", height: 62, paddingHorizontal: 16 },
-  searchIcon: { color: "#667994", fontSize: 30 },
+  content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120 },
+  title: { color: "#092542", fontSize: 22, fontWeight: "800", marginBottom: 12 },
+  search: {
+    alignItems: "center",
+    borderColor: "#dce4ee",
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: "row",
+    height: 44,
+    paddingHorizontal: 12,
+  },
   searchInput: { color: "#092542", flex: 1, fontSize: 16, marginLeft: 8 },
-  filters: { flexDirection: "row", gap: 6, marginVertical: 24 },
-  filter: { alignItems: "center", borderColor: "#dce4ee", borderRadius: 22, borderWidth: 2, flex: 1, justifyContent: "center", minWidth: 0, paddingHorizontal: 4, paddingVertical: 10 },
-  filterText: { color: "#667994", fontSize: 13, textAlign: "center" },
+  filters: { flexGrow: 0, marginBottom: 12, marginTop: 12 },
+  filter: {
+    alignItems: "center",
+    borderColor: "#dce4ee",
+    borderRadius: 18,
+    borderWidth: 1,
+    marginRight: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  filterText: { color: "#667994", fontSize: 14 },
   activeFilter: { backgroundColor: "#ef7f19", borderColor: "#ef7f19" },
   activeFilterText: { color: "#fff", fontWeight: "700" },
-  newButton: { alignSelf: "flex-end", backgroundColor: "#ef7f19", borderRadius: 28, elevation: 8, paddingHorizontal: 22, paddingVertical: 16, position: "absolute", right: 22, shadowColor: "#092542", shadowOffset: { height: 6, width: 0 }, shadowOpacity: 0.25, shadowRadius: 8 },
-  newButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  newButton: {
+    alignSelf: "flex-end",
+    backgroundColor: "#ef7f19",
+    borderRadius: 22,
+    elevation: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    position: "absolute",
+    right: 16,
+    shadowColor: "#092542",
+    shadowOffset: { height: 4, width: 0 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+  },
+  newButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   pressed: { opacity: 0.8 },
-  modalOverlay: { alignItems: "center", backgroundColor: "rgba(0, 0, 0, 0.72)", flex: 1, justifyContent: "center", padding: 24 },
-  profileCard: { backgroundColor: "#092542", borderColor: "#174a79", borderRadius: 14, borderWidth: 1, maxWidth: 380, padding: 22, width: "100%" },
-  profileHeading: { alignItems: "center", flexDirection: "row" },
-  logoutIcon: { alignItems: "center", backgroundColor: "#632d43", borderRadius: 24, height: 48, justifyContent: "center", marginRight: 14, width: 48 },
-  profileTitle: { color: "#fff", fontSize: 20, fontWeight: "800" },
-  profileMessage: { color: "#9fb0c5", fontSize: 15, lineHeight: 21, marginBottom: 20, marginTop: 12 },
-  logoutButton: { alignItems: "center", backgroundColor: "#d71929", borderRadius: 7, justifyContent: "center", paddingVertical: 14 },
-  logoutText: { color: "#fff", fontSize: 15, fontWeight: "800" },
-  cancelProfileButton: { alignItems: "center", borderColor: "#174a79", borderRadius: 7, borderWidth: 1, justifyContent: "center", marginTop: 8, paddingVertical: 13 },
-  cancelProfileText: { color: "#fff", fontSize: 15, fontWeight: "800" },
   state: { alignItems: "center", paddingVertical: 32 },
   stateText: { color: "#667994", fontSize: 15, marginTop: 12 },
   errorText: { color: "#d71929", fontSize: 15, textAlign: "center" },
