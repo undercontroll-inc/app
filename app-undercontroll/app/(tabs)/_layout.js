@@ -1,14 +1,16 @@
 import { Slot, usePathname } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import BottomNav from "../../components/BottomNav";
+import { TabBarVisibilityProvider, useTabBarVisibility } from "../../contexts/TabBarVisibilityContext";
 
 export const unstable_settings = {
   initialRouteName: "orders",
 };
 
-export default function TabsLayout() {
+function TabsLayoutInner() {
   const pathname = usePathname();
-  const hideNav = (pathname.startsWith("/orders/") && pathname !== "/orders") || pathname.startsWith("/stock/");
+  const { hidden } = useTabBarVisibility();
+  const hideNav = hidden || (pathname.startsWith("/orders/") && pathname !== "/orders") || pathname.startsWith("/stock/");
 
   return (
     <View style={styles.root}>
@@ -17,6 +19,14 @@ export default function TabsLayout() {
       </View>
       {!hideNav && <BottomNav />}
     </View>
+  );
+}
+
+export default function TabsLayout() {
+  return (
+    <TabBarVisibilityProvider>
+      <TabsLayoutInner />
+    </TabBarVisibilityProvider>
   );
 }
 
