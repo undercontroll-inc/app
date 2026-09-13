@@ -59,14 +59,6 @@ export default function DateField({ label, value, onChange }) {
           <View style={styles.overlay}>
             <Pressable onPress={() => setOpen(false)} style={styles.overlayDismiss} />
             <View style={styles.sheet}>
-              <View style={styles.sheetHeader}>
-                <Pressable onPress={() => setOpen(false)} style={styles.sheetAction}>
-                  <Text style={styles.cancelText}>Cancelar</Text>
-                </Pressable>
-                <Pressable onPress={() => apply(draft)} style={styles.sheetAction}>
-                  <Text style={styles.confirmText}>Confirmar</Text>
-                </Pressable>
-              </View>
               <DateTimePicker
                 display="spinner"
                 locale="pt-BR"
@@ -74,6 +66,14 @@ export default function DateField({ label, value, onChange }) {
                 onChange={(_, date) => date && setDraft(date)}
                 value={draft}
               />
+              <View style={styles.sheetActions}>
+                <Pressable onPress={() => apply(draft)} style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
+                  <Text style={styles.confirmButtonText}>Confirmar</Text>
+                </Pressable>
+                <Pressable onPress={() => setOpen(false)} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+                  <Text style={styles.cancelButtonText}>Cancelar</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         </Modal>
@@ -83,15 +83,15 @@ export default function DateField({ label, value, onChange }) {
 }
 
 const styles = StyleSheet.create({
-  field: { flex: 1, marginBottom: 18, minWidth: 125 },
+  field: { marginBottom: 12 },
   fieldLabel: { color: "#667994", fontSize: 14, marginBottom: 8 },
   fieldBox: {
     alignItems: "center",
     borderColor: "#dce4ee",
-    borderRadius: 11,
-    borderWidth: 2,
+    borderRadius: 10,
+    borderWidth: 1,
     flexDirection: "row",
-    minHeight: 54,
+    minHeight: 48,
     paddingHorizontal: 14,
   },
   fieldValue: { color: "#092542", flex: 1, fontSize: 15, paddingVertical: 10 },
@@ -106,17 +106,18 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     paddingBottom: 16,
+    paddingHorizontal: 20,
   },
-  sheetHeader: {
+  sheetActions: { gap: 8, paddingTop: 4 },
+  confirmButton: {
     alignItems: "center",
-    borderBottomColor: "#eef2f6",
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: "#ef7f19",
+    borderRadius: 12,
+    justifyContent: "center",
+    minHeight: 48,
   },
-  sheetAction: { padding: 6 },
-  cancelText: { color: "#667994", fontSize: 16, fontWeight: "700" },
-  confirmText: { color: "#ef7f19", fontSize: 16, fontWeight: "800" },
+  confirmButtonText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
+  cancelButton: { alignItems: "center", justifyContent: "center", minHeight: 44 },
+  cancelButtonText: { color: "#667994", fontSize: 16, fontWeight: "700" },
+  pressed: { opacity: 0.72 },
 });

@@ -48,14 +48,6 @@ export default function NativeSelect({
         <View style={styles.overlay}>
           <Pressable onPress={() => setOpen(false)} style={styles.overlayDismiss} />
           <View style={[styles.sheet, dark && styles.darkSheet]}>
-            <View style={styles.sheetHeader}>
-              <Pressable onPress={() => setOpen(false)} style={styles.sheetAction}>
-                <Text style={[styles.cancelText, dark && styles.darkActionText]}>Cancelar</Text>
-              </Pressable>
-              <Pressable onPress={confirm} style={styles.sheetAction}>
-                <Text style={styles.confirmText}>Confirmar</Text>
-              </Pressable>
-            </View>
             <Picker
               itemStyle={dark ? styles.darkItem : undefined}
               onValueChange={setDraft}
@@ -71,6 +63,14 @@ export default function NativeSelect({
                 />
               ))}
             </Picker>
+            <View style={styles.sheetActions}>
+              <Pressable onPress={confirm} style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
+                <Text style={styles.confirmButtonText}>Confirmar</Text>
+              </Pressable>
+              <Pressable onPress={() => setOpen(false)} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+                <Text style={[styles.cancelButtonText, dark && styles.darkActionText]}>Cancelar</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -79,15 +79,15 @@ export default function NativeSelect({
 }
 
 const styles = StyleSheet.create({
-  field: { flex: 1, marginBottom: 18, minWidth: 125 },
+  field: { marginBottom: 12 },
   fieldLabel: { color: "#667994", fontSize: 14, marginBottom: 8 },
   fieldBox: {
     alignItems: "center",
     borderColor: "#dce4ee",
-    borderRadius: 11,
-    borderWidth: 2,
+    borderRadius: 10,
+    borderWidth: 1,
     flexDirection: "row",
-    minHeight: 54,
+    minHeight: 48,
     paddingHorizontal: 14,
   },
   valueRow: { alignItems: "center", flex: 1, flexDirection: "row" },
@@ -106,21 +106,22 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     paddingBottom: 16,
+    paddingHorizontal: 20,
   },
   darkSheet: { backgroundColor: "#092542" },
-  sheetHeader: {
+  sheetActions: { gap: 8, paddingTop: 4 },
+  confirmButton: {
     alignItems: "center",
-    borderBottomColor: "#eef2f6",
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: "#ef7f19",
+    borderRadius: 12,
+    minHeight: 48,
+    justifyContent: "center",
   },
-  sheetAction: { padding: 6 },
-  cancelText: { color: "#667994", fontSize: 16, fontWeight: "700" },
-  confirmText: { color: "#ef7f19", fontSize: 16, fontWeight: "800" },
+  confirmButtonText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
+  cancelButton: { alignItems: "center", minHeight: 44, justifyContent: "center" },
+  cancelButtonText: { color: "#667994", fontSize: 16, fontWeight: "700" },
   darkActionText: { color: "#9fb0c5" },
   picker: { minHeight: 180, width: "100%" },
   darkItem: { color: "#ffffff" },
+  pressed: { opacity: 0.72 },
 });
