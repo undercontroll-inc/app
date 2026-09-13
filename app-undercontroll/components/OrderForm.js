@@ -11,7 +11,9 @@ import {
 import Feather from "@expo/vector-icons/Feather";
 import { router, useFocusEffect } from "expo-router";
 import { useTabBarVisibility } from "../contexts/TabBarVisibilityContext";
+import useVoiceNote from "../hooks/useVoiceNote";
 import AppShell from "./AppShell";
+import VoiceNoteField from "./VoiceNoteField";
 import DateField from "./DateField";
 import NativeSelect from "./NativeSelect";
 import ScreenHeader from "./ScreenHeader";
@@ -59,14 +61,12 @@ function Field({
   multiline,
   placeholder,
   editable = true,
-  audio,
-  onAudioPress,
   keyboardType,
 }) {
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={[styles.fieldBox, multiline && styles.multiline, audio && styles.audioFieldBox, !editable && styles.readonlyBox]}>
+      <View style={[styles.fieldBox, multiline && styles.multiline, !editable && styles.readonlyBox]}>
         <TextInput
           editable={editable}
           keyboardType={keyboardType}
@@ -74,18 +74,9 @@ function Field({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#667994"
-          style={[styles.fieldValue, audio && styles.audioFieldValue]}
+          style={styles.fieldValue}
           value={value}
         />
-        {audio && (
-          <Pressable
-            accessibilityLabel="Gravar áudio"
-            onPress={onAudioPress}
-            style={({ pressed }) => [styles.audioButton, pressed && styles.pressed]}
-          >
-            <Feather color="#667994" name="mic" size={18} />
-          </Pressable>
-        )}
       </View>
     </View>
   );
@@ -164,6 +155,7 @@ function displayContact(value, fallback = "Não informado") {
 
 export default function OrderForm({ edit, orderId }) {
   const { setHidden } = useTabBarVisibility();
+  const voice = useVoiceNote({ edit, orderId });
   const [status, setStatus] = useState("Pendente");
   const [collapsedDevices, setCollapsedDevices] = useState({});
   const [feedback, setFeedback] = useState("");
@@ -212,6 +204,10 @@ export default function OrderForm({ edit, orderId }) {
     const timeout = setTimeout(() => setFeedback(""), 2500);
     return () => clearTimeout(timeout);
   }, [feedback]);
+
+  useEffect(() => {
+    if (voice.patchWarning) setFeedback(voice.patchWarning);
+  }, [voice.patchWarning]);
 
   useEffect(() => {
     let active = true;
@@ -320,10 +316,6 @@ export default function OrderForm({ edit, orderId }) {
 
   function toggleDevice(key) {
     setCollapsedDevices((current) => ({ ...current, [key]: !current[key] }));
-  }
-
-  function recordNote(setter) {
-    setter((value) => value || "Áudio gravado: descreva os detalhes aqui.");
   }
 
   function selectClient(client) {
@@ -525,24 +517,44 @@ export default function OrderForm({ edit, orderId }) {
             <Summary label="Subtotal de Mão-de-Obra" value={formatCurrency(laborSubtotal)} />
           </Section>
           <Section title="Observações do Cliente">
-            <Field
-              audio
+            <VoiceNoteField
               label="Informações Adicionais"
-              multiline
+              onCancel={voice.cancel}
               onChangeText={setNote}
-              onAudioPress={() => recordNote(setNote)}
-              placeholder="Digite a observação do cliente ou grave um áudio"
+              onDraftChange={voice.setDraftText}
+              onInsert={voice.applyInsert}
+              onRecord={() =>
+                voice.start("customer", { patchKey: "customerDescription", setValue: setNote })
+              }
+              onReplace={voice.applyReplace}
+              onRerecord={voice.rerecord}
+              onStart={voice.record}
+              onStop={voice.stop}
+              onTranscribe={voice.transcribe}
+              onUse={voice.applyUse}
+              placeholder="Digite ou grave um áudio"
+              state={voice.stateFor("customer")}
               value={note}
             />
           </Section>
           <Section title="Observações Técnicas">
-            <Field
-              audio
+            <VoiceNoteField
               label="Laudo / Instruções Internas"
-              multiline
+              onCancel={voice.cancel}
               onChangeText={setTechnicalNote}
-              onAudioPress={() => recordNote(setTechnicalNote)}
-              placeholder="Digite uma observação técnica ou grave um áudio"
+              onDraftChange={voice.setDraftText}
+              onInsert={voice.applyInsert}
+              onRecord={() =>
+                voice.start("technical", { patchKey: "technicalDescription", setValue: setTechnicalNote })
+              }
+              onReplace={voice.applyReplace}
+              onRerecord={voice.rerecord}
+              onStart={voice.record}
+              onStop={voice.stop}
+              onTranscribe={voice.transcribe}
+              onUse={voice.applyUse}
+              placeholder="Digite ou grave um áudio"
+              state={voice.stateFor("technical")}
               value={technicalNote}
             />
           </Section>
@@ -715,9 +727,6 @@ const styles = StyleSheet.create({
   },
   readonlyBox: { backgroundColor: "#f4f7fb" },
   fieldValue: { color: "#092542", flex: 1, fontSize: 15, paddingVertical: 10 },
-  audioFieldBox: { backgroundColor: "#f4f7fb", borderColor: "#dce4ee", minHeight: 112, paddingBottom: 0, paddingTop: 10 },
-  audioFieldValue: { color: "#667994", minHeight: 80, textAlignVertical: "top" },
-  audioButton: { alignItems: "center", backgroundColor: "#ffffff", borderColor: "#dce4ee", borderRadius: 14, borderWidth: 2, height: 56, justifyContent: "center", marginLeft: 10, marginTop: 2, width: 56 },
   multiline: { alignItems: "flex-start", minHeight: 108 },
   optionPressed: { backgroundColor: "#f4f7fb" },
   suggestions: {
