@@ -1,13 +1,10 @@
 import { useState } from "react";
-import { router } from "expo-router";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppShell from "../../../components/AppShell";
 import ScreenHeader from "../../../components/ScreenHeader";
 
 export function StockItemForm({ edit = false }) {
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const [form, setForm] = useState(() => {
     const categoryParts = String(params.category || "").split(" · ");
@@ -53,23 +50,31 @@ export function StockItemForm({ edit = false }) {
           onClose={() => router.back()}
           title={edit ? "Editar Item" : "Cadastrar Novo Item"}
         />
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 130 + insets.bottom }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.formCard}>
             <Text style={styles.sectionTitle}>Dados do Item</Text>
             <Field label="Item" value={form.name} onChangeText={(value) => updateField("name", value)} placeholder="Nome do item" />
             <View style={styles.row}>
-              <View style={styles.half}><Field label="Marca" value={form.brand} onChangeText={(value) => updateField("brand", value)} placeholder="Marca" /></View>
-              <View style={styles.half}><Field label="Categoria" value={form.category} onChangeText={(value) => updateField("category", value)} placeholder="Categoria" /></View>
+              <View style={styles.half}>
+                <Field label="Marca" value={form.brand} onChangeText={(value) => updateField("brand", value)} placeholder="Marca" />
+              </View>
+              <View style={styles.half}>
+                <Field label="Categoria" value={form.category} onChangeText={(value) => updateField("category", value)} placeholder="Categoria" />
+              </View>
             </View>
             <View style={styles.row}>
-              <View style={styles.half}><Field label="Quantidade" value={form.quantity} onChangeText={(value) => updateField("quantity", value)} placeholder="0" keyboardType="numeric" /></View>
-              <View style={styles.half}><Field label="Preço Unitário (R$)" value={form.price} onChangeText={(value) => updateField("price", value)} placeholder="R$ 0,00" /></View>
+              <View style={styles.half}>
+                <Field label="Quantidade" value={form.quantity} onChangeText={(value) => updateField("quantity", value)} placeholder="0" keyboardType="numeric" />
+              </View>
+              <View style={styles.half}>
+                <Field label="Preço Unitário (R$)" value={form.price} onChangeText={(value) => updateField("price", value)} placeholder="R$ 0,00" />
+              </View>
             </View>
             <Field label="Fornecedor" value={form.supplier} onChangeText={(value) => updateField("supplier", value)} placeholder="Fornecedor" />
             <Field label="Descrição (opcional)" value={form.description} onChangeText={(value) => updateField("description", value)} placeholder="Insira uma descrição" multiline />
           </View>
         </ScrollView>
-        <View style={[styles.footer, { paddingBottom: 20 + insets.bottom }]}>
+        <View style={styles.footer}>
           <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
             <Text style={styles.cancelText}>Cancelar</Text>
           </Pressable>
@@ -90,7 +95,14 @@ function Field({ label, multiline, ...props }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput {...props} multiline={multiline} numberOfLines={multiline ? 4 : 1} placeholderTextColor="#9aaac0" style={[styles.input, multiline && styles.descriptionInput]} textAlignVertical={multiline ? "top" : "center"} />
+      <TextInput
+        {...props}
+        multiline={multiline}
+        numberOfLines={multiline ? 4 : 1}
+        placeholderTextColor="#9aaac0"
+        style={[styles.input, multiline && styles.descriptionInput]}
+        textAlignVertical={multiline ? "top" : "center"}
+      />
     </View>
   );
 }
@@ -98,7 +110,7 @@ function Field({ label, multiline, ...props }) {
 const styles = StyleSheet.create({
   screen: { backgroundColor: "#ffffff", flex: 1 },
   content: { padding: 20, paddingBottom: 36 },
-  formCard: { borderColor: "#dce4ee", borderRadius: 16, borderWidth: 2, marginBottom: 18, padding: 20 },
+  formCard: { borderColor: "#dce4ee", borderRadius: 16, borderWidth: 2, marginBottom: 18, padding: 20, paddingBottom: 36 },
   sectionTitle: { color: "#092542", fontSize: 23, fontWeight: "800", marginBottom: 20 },
   row: { flexDirection: "row", gap: 12 },
   half: { flex: 1 },
@@ -106,7 +118,7 @@ const styles = StyleSheet.create({
   label: { color: "#667994", fontSize: 14, marginBottom: 8 },
   input: { borderColor: "#dce4ee", borderRadius: 11, borderWidth: 2, color: "#092542", fontSize: 15, minHeight: 54, paddingHorizontal: 14, paddingVertical: 10 },
   descriptionInput: { minHeight: 108, paddingTop: 10, textAlignVertical: "top" },
-  footer: { backgroundColor: "#ffffff", borderColor: "#dce4ee", borderTopWidth: 1, flexDirection: "row", gap: 12, paddingHorizontal: 20, paddingTop: 20 },
+  footer: { backgroundColor: "#ffffff", borderColor: "#dce4ee", borderTopWidth: 1, flexDirection: "row", gap: 12, padding: 20 },
   cancelButton: { alignItems: "center", borderColor: "#dce4ee", borderRadius: 30, borderWidth: 2, flex: 1, justifyContent: "center", paddingVertical: 16 },
   cancelText: { color: "#667994", fontSize: 16, fontWeight: "800" },
   submitButton: { alignItems: "center", backgroundColor: "#ef7f19", borderRadius: 30, flex: 1, justifyContent: "center", paddingVertical: 16 },
