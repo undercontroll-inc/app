@@ -8,7 +8,7 @@ const items = [
   { label: "Estoque", icon: "package", route: "/stock" },
   { label: "Clientes", icon: "users", route: "/clients" },
   { label: "Dashboard", icon: "pie-chart", route: "/dashboard" },
-  { label: "Ang AI", icon: "zap", route: "/chat" },
+  { label: "Ana AI", icon: "zap", route: "/chat" },
 ];
 
 export default function BottomNav() {

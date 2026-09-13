@@ -42,7 +42,7 @@ function NativeTabsLayout() {
         <NativeTabs.Trigger.Icon sf="chart.pie" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="chat">
-        <NativeTabs.Trigger.Label>Ang AI</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Ana AI</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="bolt" />
       </NativeTabs.Trigger>
     </NativeTabs>
