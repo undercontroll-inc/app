@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <KeyboardProvider preload={false}>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </KeyboardProvider>
   );
 }
 
