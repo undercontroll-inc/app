@@ -2,7 +2,7 @@ import axios from "axios";
 import { Platform } from "react-native";
 import { clearAuth, getRefreshToken, getToken, saveTokens } from "../utils/auth";
 
-function getBaseURL() {
+export function getApiBaseURL() {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
@@ -11,7 +11,7 @@ function getBaseURL() {
   return `http://${host}:${port}/v1/api`;
 }
 
-const baseURL = getBaseURL();
+const baseURL = getApiBaseURL();
 
 export const apiClient = axios.create({
   baseURL,
