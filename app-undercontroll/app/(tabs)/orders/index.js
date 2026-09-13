@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AppHeader from "../../../components/AppHeader";
 import AppShell from "../../../components/AppShell";
 import AppHeader from "../../../components/AppHeader";
 import OrderCard from "../../../components/OrderCard";
@@ -228,10 +227,10 @@ const styles = StyleSheet.create({
   newButton: {
     alignSelf: "flex-end",
     backgroundColor: "#ef7f19",
-    borderRadius: 22,
+    borderRadius: 28,
     elevation: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 22,
+    paddingVertical: 16,
     position: "absolute",
     right: 16,
     shadowColor: "#092542",
@@ -239,7 +238,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 6,
   },
-  newButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  newButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   pressed: { opacity: 0.8 },
   state: { alignItems: "center", paddingVertical: 32 },
   stateText: { color: "#667994", fontSize: 15, marginTop: 12 },
