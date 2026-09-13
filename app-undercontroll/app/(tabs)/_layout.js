@@ -8,7 +8,7 @@ export const unstable_settings = {
 
 export default function TabsLayout() {
   const pathname = usePathname();
-  const hideNav = pathname.startsWith("/orders/") && pathname !== "/orders";
+  const hideNav = (pathname.startsWith("/orders/") && pathname !== "/orders") || pathname.startsWith("/stock/");
 
   return (
     <View style={styles.root}>

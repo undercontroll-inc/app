@@ -34,7 +34,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   copy: {
+    alignItems: "center",
     flex: 1,
+    flexDirection: "row",
     paddingRight: 12,
   },
   title: {
@@ -43,13 +45,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   badge: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     backgroundColor: "#0645b4",
     borderRadius: 6,
     color: "#fff",
     fontSize: 12,
     fontWeight: "700",
-    marginTop: 8,
+    marginLeft: 12,
+    marginTop: 0,
     overflow: "hidden",
     paddingHorizontal: 8,
     paddingVertical: 6,
