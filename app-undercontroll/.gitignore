@@ -33,6 +33,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# json-server runtime copy of the seed
+mock/db.runtime.json
+
 # typescript
 *.tsbuildinfo
 

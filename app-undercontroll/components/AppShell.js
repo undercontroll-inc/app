@@ -4,9 +4,9 @@ import { StyleSheet, View } from "react-native";
 
 export default function AppShell({ children }) {
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <SafeAreaView collapsable={false} edges={["top"]} style={styles.safeArea}>
       <StatusBar style="light" />
-      <View style={styles.content}>{children}</View>
+      <View collapsable={false} style={styles.content}>{children}</View>
     </SafeAreaView>
   );
 }
