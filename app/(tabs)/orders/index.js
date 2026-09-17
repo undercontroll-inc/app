@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import Feather from "@expo/vector-icons/Feather";
 import {
   ActivityIndicator,
   FlatList,
@@ -8,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
@@ -16,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppShell from "../../../components/AppShell";
 import AppHeader from "../../../components/AppHeader";
 import OrderCard from "../../../components/OrderCard";
+import SearchField from "../../../components/SearchField";
 import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
 import { getAxiosErrorMessage } from "../../../providers/api";
 import { orderService } from "../../../services/OrderService";
@@ -151,16 +150,7 @@ export default function OrdersScreen() {
         ListHeaderComponent={
           <View>
             <Text style={styles.title}>Ordens de Serviço</Text>
-            <View style={styles.search}>
-              <Feather color="#667994" name="search" size={18} />
-              <TextInput
-                onChangeText={setSearch}
-                placeholder="OS ou cliente"
-                placeholderTextColor="#667994"
-                style={styles.searchInput}
-                value={search}
-              />
-            </View>
+            <SearchField onChangeText={setSearch} placeholder="OS ou cliente" value={search} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters}>
               {filters.map((item) => (
                 <Pressable
@@ -201,16 +191,6 @@ export default function OrdersScreen() {
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120 },
   title: { color: "#092542", fontSize: 22, fontWeight: "800", marginBottom: 12 },
-  search: {
-    alignItems: "center",
-    borderColor: "#dce4ee",
-    borderRadius: 10,
-    borderWidth: 1,
-    flexDirection: "row",
-    height: 44,
-    paddingHorizontal: 12,
-  },
-  searchInput: { color: "#092542", flex: 1, fontSize: 16, marginLeft: 8 },
   filters: { flexGrow: 0, marginBottom: 12, marginTop: 12 },
   filter: {
     alignItems: "center",

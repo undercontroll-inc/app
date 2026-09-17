@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AudioReviewBar from "./AudioReviewBar";
 import AudioWaveform from "./AudioWaveform";
+import { bottomDockPadding } from "../utils/layout";
 
 function titleFor(status) {
   if (status === "ready") return "Gravar áudio";
@@ -56,7 +57,7 @@ export default function VoiceNoteSheet({
           onPress={dismissOnOverlay ? onClose : undefined}
           style={styles.overlayDismiss}
         />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.sheet, { paddingBottom: bottomDockPadding(insets) }]}>
           <View style={styles.handle} />
           <View style={styles.header}>
             <Pressable disabled={!canClose} onPress={onClose} style={styles.headerAction}>

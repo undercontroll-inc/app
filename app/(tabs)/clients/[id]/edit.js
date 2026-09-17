@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
-import ClientForm from "../../../components/ClientForm";
+import ClientForm from "../../../../components/ClientForm";
 
 export default function EditClientScreen() {
   const { id } = useLocalSearchParams();

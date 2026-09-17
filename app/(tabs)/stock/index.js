@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AppHeader from "../../components/AppHeader";
-import AppShell from "../../components/AppShell";
+import AppHeader from "../../../components/AppHeader";
+import AppShell from "../../../components/AppShell";
+import SearchField from "../../../components/SearchField";
 
 const initialItems = [
   { id: "1", name: "Placa Principal", category: "Electrolux · Placas", price: "R$ 150,00", quantity: "10", supplier: "TechParts" },
@@ -55,10 +56,7 @@ export default function StockScreen() {
       <View style={styles.scrollWrap}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.title}>Controle de Estoque</Text>
-          <View style={styles.search}>
-            <Feather color="#667994" name="search" size={20} />
-            <TextInput onChangeText={setSearch} placeholder="Buscar peça ou item..." placeholderTextColor="#667994" style={styles.searchInput} value={search} />
-          </View>
+          <SearchField onChangeText={setSearch} placeholder="Buscar peça ou item..." value={search} />
           {visibleItems.length === 0 ? (
             <Text style={styles.empty}>Nenhum item encontrado.</Text>
           ) : visibleItems.map((item) => (
@@ -95,8 +93,6 @@ const styles = StyleSheet.create({
   scrollWrap: { flex: 1 },
   content: { padding: 24, paddingBottom: 120 },
   title: { color: "#092542", fontSize: 32, fontWeight: "800", marginBottom: 26 },
-  search: { alignItems: "center", borderColor: "#dce4ee", borderRadius: 14, borderWidth: 2, flexDirection: "row", height: 62, paddingHorizontal: 16 },
-  searchInput: { color: "#092542", flex: 1, fontSize: 16, marginLeft: 8 },
   itemCard: { borderColor: "#dce4ee", borderRadius: 16, borderWidth: 2, marginTop: 18, padding: 22 },
   itemHeading: { alignItems: "flex-start", flexDirection: "row", justifyContent: "space-between" },
   itemNameWrap: { flex: 1, paddingRight: 8 },

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarVisibility } from "../contexts/TabBarVisibilityContext";
 import useVoiceNote from "../hooks/useVoiceNote";
 import AppShell from "./AppShell";
@@ -31,6 +32,7 @@ import {
   formatDateBR,
   formatUserName,
 } from "../utils/orders";
+import { bottomDockPadding } from "../utils/layout";
 
 const STEP_COUNT = 3;
 
@@ -138,6 +140,7 @@ function deviceSummary(device) {
 }
 
 export default function OrderForm({ edit, orderId }) {
+  const insets = useSafeAreaInsets();
   const { setHidden } = useTabBarVisibility();
   const voice = useVoiceNote({ edit, orderId });
   const [step, setStep] = useState(0);
@@ -723,7 +726,7 @@ export default function OrderForm({ edit, orderId }) {
           <Text style={styles.toastText}>{feedback}</Text>
         </View>
       )}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: bottomDockPadding(insets) }]}>
         <Pressable onPress={onSecondary} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
           <Text style={styles.cancelText}>{secondaryLabel}</Text>
         </Pressable>
@@ -918,8 +921,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     flexDirection: "row",
     gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   cancelButton: {
     alignItems: "center",

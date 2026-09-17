@@ -6,10 +6,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import SearchField from "./SearchField";
+import { bottomDockPadding } from "../utils/layout";
 
 export default function SearchSheet({
   visible,
@@ -28,7 +29,7 @@ export default function SearchSheet({
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.overlay}>
         <Pressable onPress={onClose} style={styles.overlayDismiss} />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.sheet, { paddingBottom: bottomDockPadding(insets) }]}>
           <View style={styles.handle} />
           <View style={styles.header}>
             <Pressable onPress={onClose} style={styles.headerAction}>
@@ -36,15 +37,8 @@ export default function SearchSheet({
             </Pressable>
           </View>
           <Text style={styles.title}>{title}</Text>
-          <View style={styles.search}>
-            <TextInput
-              autoFocus
-              onChangeText={onChangeQuery}
-              placeholder={placeholder}
-              placeholderTextColor="#667994"
-              style={styles.searchInput}
-              value={query}
-            />
+          <View style={styles.searchWrap}>
+            <SearchField autoFocus onChangeText={onChangeQuery} placeholder={placeholder} value={query} />
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" style={styles.list}>
             {results.length === 0 ? (
@@ -110,18 +104,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 4,
   },
-  search: {
-    borderColor: "#dce4ee",
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  searchInput: {
-    color: "#092542",
-    fontSize: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
+  searchWrap: { marginBottom: 8 },
   list: {
     maxHeight: 360,
   },

@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Feather from "@expo/vector-icons/Feather";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatDateBR } from "../utils/orders";
+import { bottomDockPadding } from "../utils/layout";
 
 function parseBRDate(value) {
   if (!value) return new Date();
@@ -17,6 +19,7 @@ function parseBRDate(value) {
 }
 
 export default function DateField({ label, value, onChange }) {
+  const insets = useSafeAreaInsets();
   const selected = useMemo(() => parseBRDate(value), [value]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(selected);
@@ -58,7 +61,7 @@ export default function DateField({ label, value, onChange }) {
         <Modal animationType="slide" onRequestClose={() => setOpen(false)} transparent visible={open}>
           <View style={styles.overlay}>
             <Pressable onPress={() => setOpen(false)} style={styles.overlayDismiss} />
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, { paddingBottom: bottomDockPadding(insets) }]}>
               <DateTimePicker
                 display="spinner"
                 locale="pt-BR"
@@ -105,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    paddingBottom: 16,
+    paddingBottom: 0,
     paddingHorizontal: 20,
   },
   sheetActions: { gap: 8, paddingTop: 4 },

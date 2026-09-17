@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { Picker } from "@react-native-picker/picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { bottomDockPadding } from "../utils/layout";
 
 function getStatusColor(status) {
   if (status === "Concluído") return "#25cf79";
@@ -18,6 +20,7 @@ export default function NativeSelect({
   dark,
   statusIndicator,
 }) {
+  const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
 
@@ -47,7 +50,7 @@ export default function NativeSelect({
       <Modal animationType="slide" onRequestClose={() => setOpen(false)} transparent visible={open}>
         <View style={styles.overlay}>
           <Pressable onPress={() => setOpen(false)} style={styles.overlayDismiss} />
-          <View style={[styles.sheet, dark && styles.darkSheet]}>
+          <View style={[styles.sheet, dark && styles.darkSheet, { paddingBottom: bottomDockPadding(insets) }]}>
             <Picker
               itemStyle={dark ? styles.darkItem : undefined}
               onValueChange={setDraft}
@@ -105,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    paddingBottom: 16,
+    paddingBottom: 0,
     paddingHorizontal: 20,
   },
   darkSheet: { backgroundColor: "#092542" },

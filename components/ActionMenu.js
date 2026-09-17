@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { ActionSheetIOS, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { bottomDockPadding } from "../utils/layout";
 
 export function useActionMenu() {
   const [config, setConfig] = useState(null);
@@ -38,7 +39,7 @@ export function ActionMenuSheet({ config, onClose }) {
     <Modal animationType="slide" onRequestClose={onClose} transparent visible>
       <View style={styles.overlay}>
         <Pressable onPress={onClose} style={styles.overlayDismiss} />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.sheet, { paddingBottom: bottomDockPadding(insets) }]}>
           <View style={styles.handle} />
           {config.title ? <Text style={styles.title}>{config.title}</Text> : null}
           {config.message ? <Text style={styles.message}>{config.message}</Text> : null}

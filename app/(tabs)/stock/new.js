@@ -1,10 +1,15 @@
-import { useState } from "react";
-import { router, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppShell from "../../../components/AppShell";
 import ScreenHeader from "../../../components/ScreenHeader";
+import { useTabBarVisibility } from "../../../contexts/TabBarVisibilityContext";
+import { bottomDockPadding } from "../../../utils/layout";
 
 export function StockItemForm({ edit = false }) {
+  const insets = useSafeAreaInsets();
+  const { setHidden } = useTabBarVisibility();
   const params = useLocalSearchParams();
   const [form, setForm] = useState(() => {
     const categoryParts = String(params.category || "").split(" · ");
@@ -18,6 +23,13 @@ export function StockItemForm({ edit = false }) {
       description: params.description || "",
     };
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      setHidden(true);
+      return () => setHidden(false);
+    }, [setHidden]),
+  );
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -74,7 +86,7 @@ export function StockItemForm({ edit = false }) {
             <Field label="Descrição (opcional)" value={form.description} onChangeText={(value) => updateField("description", value)} placeholder="Insira uma descrição" multiline />
           </View>
         </ScrollView>
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: bottomDockPadding(insets) }]}>
           <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
             <Text style={styles.cancelText}>Cancelar</Text>
           </Pressable>
@@ -118,7 +130,7 @@ const styles = StyleSheet.create({
   label: { color: "#667994", fontSize: 14, marginBottom: 8 },
   input: { borderColor: "#dce4ee", borderRadius: 11, borderWidth: 2, color: "#092542", fontSize: 15, minHeight: 54, paddingHorizontal: 14, paddingVertical: 10 },
   descriptionInput: { minHeight: 108, paddingTop: 10, textAlignVertical: "top" },
-  footer: { backgroundColor: "#ffffff", borderColor: "#dce4ee", borderTopWidth: 1, flexDirection: "row", gap: 12, padding: 20 },
+  footer: { backgroundColor: "#ffffff", borderColor: "#dce4ee", borderTopWidth: 1, flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingTop: 16 },
   cancelButton: { alignItems: "center", borderColor: "#dce4ee", borderRadius: 30, borderWidth: 2, flex: 1, justifyContent: "center", paddingVertical: 16 },
   cancelText: { color: "#667994", fontSize: 16, fontWeight: "800" },
   submitButton: { alignItems: "center", backgroundColor: "#ef7f19", borderRadius: 30, flex: 1, justifyContent: "center", paddingVertical: 16 },

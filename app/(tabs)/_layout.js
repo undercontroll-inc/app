@@ -10,7 +10,11 @@ export const unstable_settings = {
 function TabsLayoutInner() {
   const pathname = usePathname();
   const { hidden } = useTabBarVisibility();
-  const hideNav = hidden || (pathname.startsWith("/orders/") && pathname !== "/orders") || pathname.startsWith("/stock/");
+  const hideNav =
+    hidden ||
+    (pathname.startsWith("/orders/") && pathname !== "/orders") ||
+    pathname.startsWith("/stock/") ||
+    (pathname.startsWith("/clients/") && pathname !== "/clients");
 
   return (
     <View style={styles.root}>

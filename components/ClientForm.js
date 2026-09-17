@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarVisibility } from "../contexts/TabBarVisibilityContext";
 import AppShell from "./AppShell";
 import ScreenHeader from "./ScreenHeader";
 import { getAxiosErrorMessage } from "../providers/api";
 import { userService } from "../services/UserService";
+import { bottomDockPadding } from "../utils/layout";
 
 const emptyForm = {
   name: "",
@@ -21,10 +23,18 @@ const emptyForm = {
 
 export default function ClientForm({ edit = false, clientId }) {
   const insets = useSafeAreaInsets();
+  const { setHidden } = useTabBarVisibility();
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(edit);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
+
+  useFocusEffect(
+    useCallback(() => {
+      setHidden(true);
+      return () => setHidden(false);
+    }, [setHidden]),
+  );
 
   useEffect(() => {
     let active = true;
@@ -74,9 +84,13 @@ export default function ClientForm({ edit = false, clientId }) {
     try {
       setSaving(true);
       setFeedback("");
-      if (edit) await userService.update(clientId, payload);
-      else await userService.create(payload);
-      router.replace("/clients");
+      if (edit) {
+        await userService.update(clientId, payload);
+        router.replace(`/clients/${clientId}`);
+      } else {
+        await userService.create(payload);
+        router.replace("/clients");
+      }
     } catch (err) {
       setFeedback(getAxiosErrorMessage(err));
     } finally {
@@ -127,7 +141,7 @@ export default function ClientForm({ edit = false, clientId }) {
             {!!feedback && <Text style={styles.feedback}>{feedback}</Text>}
           </ScrollView>
         )}
-        <View style={[styles.footer, { paddingBottom: 20 + insets.bottom }]}>
+        <View style={[styles.footer, { paddingBottom: bottomDockPadding(insets) }]}>
           <Pressable accessibilityLabel="Cancelar e voltar" disabled={saving} onPress={() => router.back()} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}><Text style={styles.cancelText}>Cancelar</Text></Pressable>
           <Pressable accessibilityLabel={edit ? "Salvar alterações do cliente" : "Cadastrar cliente"} disabled={saving || loading} onPress={handleSubmit} style={({ pressed }) => [styles.submitButton, pressed && styles.pressed, (saving || loading) && styles.disabled]}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{edit ? "Salvar Alterações" : "Cadastrar Cliente"}</Text>}
@@ -163,7 +177,7 @@ const styles = StyleSheet.create({
   loadingBox: { alignItems: "center", flex: 1, justifyContent: "center" },
   loadingText: { color: "#667994", fontSize: 15, marginTop: 12 },
   feedback: { color: "#d71929", fontSize: 14, marginBottom: 12, textAlign: "center" },
-  footer: { backgroundColor: "#fff", borderColor: "#dce4ee", borderTopWidth: 1, flexDirection: "row", gap: 12, paddingHorizontal: 20, paddingTop: 20 },
+  footer: { backgroundColor: "#fff", borderColor: "#dce4ee", borderTopWidth: 1, flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingTop: 16 },
   cancelButton: { alignItems: "center", borderColor: "#dce4ee", borderRadius: 30, borderWidth: 2, flex: 1, justifyContent: "center", paddingVertical: 16 },
   cancelText: { color: "#667994", fontSize: 16, fontWeight: "800" },
   submitButton: { alignItems: "center", backgroundColor: "#ef7f19", borderRadius: 30, flex: 1, justifyContent: "center", paddingVertical: 16 },
