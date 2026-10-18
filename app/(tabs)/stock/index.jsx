@@ -1,132 +1,135 @@
-import { useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader from "../../../components/AppHeader";
 import AppShell from "../../../components/AppShell";
 import SearchField from "../../../components/SearchField";
+import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
+import { useComponents, useDeleteComponent } from "../../../hooks/queries/useComponents";
+import useRefreshOnFocus from "../../../hooks/useRefreshOnFocus";
+import { getErrorMessage } from "../../../providers/api";
+import { formatCurrency } from "../../../utils/orders";
+import { stockCategoryLabel } from "../../../utils/stock";
 
-const initialItems = [
-  {
-    id: "1",
-    name: "Placa Principal",
-    category: "Electrolux · Placas",
-    price: "R$ 150,00",
-    quantity: "10",
-    supplier: "TechParts",
-  },
-  {
-    id: "2",
-    name: "Capacitor 25uF",
-    category: "Nichicon · Capacitores",
-    price: "R$ 18,00",
-    quantity: "80",
-    supplier: "ElecSupply",
-  },
-  { id: "3", name: "Motor 1/2HP", category: "WEG · Motores", price: "R$ 220,00", quantity: "8", supplier: "MotorBras" },
-  {
-    id: "4",
-    name: "Resistência",
-    category: "Thermex · Resistências",
-    price: "R$ 45,00",
-    quantity: "30",
-    supplier: "ThermoSupply",
-  },
-];
-
-function applyParams(current, params) {
-  if (params.updatedId && params.name) {
-    return current.map((item) =>
-      item.id === params.updatedId
-        ? {
-            ...item,
-            name: params.name,
-            category: params.category || item.category,
-            price: params.price || item.price,
-            quantity: params.quantity || item.quantity,
-            supplier: params.supplier || item.supplier,
-          }
-        : item,
-    );
-  }
-  if (!params.addedId || !params.name) return current;
-  if (current.some((item) => item.id === params.addedId)) return current;
-  return [
-    ...current,
-    {
-      id: params.addedId,
-      name: params.name,
-      category: params.category || "Sem categoria",
-      price: params.price || "R$ 0,00",
-      quantity: params.quantity || "0",
-      supplier: params.supplier || "Não informado",
-    },
-  ];
-}
+const StockItemCard = memo(function StockItemCard({ item, onPress, onLongPress }) {
+  return (
+    <Pressable
+      delayLongPress={350}
+      onLongPress={() => onLongPress(item)}
+      onPress={() => onPress(item)}
+      style={({ pressed }) => [styles.itemCard, pressed && styles.pressed]}
+    >
+      <View style={styles.itemHeading}>
+        <View style={styles.itemNameWrap}>
+          <Text style={styles.itemName}>{item.item}</Text>
+          <Text style={styles.category}>{stockCategoryLabel(item)}</Text>
+        </View>
+        <Text style={styles.price}>{formatCurrency(item.price)}</Text>
+      </View>
+      <View style={styles.divider} />
+      <View style={styles.itemDetails}>
+        <Text style={styles.detail}>
+          Qtd: <Text style={styles.detailStrong}>{item.quantity ?? 0} un</Text>
+        </Text>
+        <Text style={styles.detail}>
+          Fornecedor: <Text style={styles.detailStrong}>{item.supplier || "Não informado"}</Text>
+        </Text>
+      </View>
+    </Pressable>
+  );
+});
 
 export default function StockScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams();
-  const [items, setItems] = useState(initialItems);
   const [search, setSearch] = useState("");
+  const [actionError, setActionError] = useState("");
+  const menu = useActionMenu();
+  const componentsQuery = useComponents();
+  const { mutate: deleteComponent } = useDeleteComponent();
+  const { refetch } = componentsQuery;
+  useRefreshOnFocus(refetch);
 
-  const paramsKey = [
-    params.updatedId,
-    params.addedId,
-    params.name,
-    params.category,
-    params.price,
-    params.quantity,
-    params.supplier,
-  ].join("|");
-  const [appliedKey, setAppliedKey] = useState(null);
-  if (paramsKey !== appliedKey) {
-    setAppliedKey(paramsKey);
-    setItems((current) => applyParams(current, params));
-  }
+  const visibleItems = useMemo(() => {
+    const text = search.trim().toLowerCase();
+    return (componentsQuery.data ?? []).filter((item) =>
+      `${item.item || ""} ${item.brand || ""} ${item.category || ""} ${item.supplier || ""}`
+        .toLowerCase()
+        .includes(text),
+    );
+  }, [componentsQuery.data, search]);
 
-  const visibleItems = items.filter((item) =>
-    `${item.name} ${item.category} ${item.supplier}`.toLowerCase().includes(search.toLowerCase()),
+  const openItem = useCallback((item) => router.push(`/stock/${item.id}`), []);
+
+  const { show } = menu;
+  const openActions = useCallback(
+    (item) => {
+      show({
+        title: item.item,
+        message: stockCategoryLabel(item),
+        options: [
+          { label: "Editar", onPress: () => router.push(`/stock/${item.id}`) },
+          {
+            label: "Excluir",
+            destructive: true,
+            onPress: () => {
+              setActionError("");
+              deleteComponent(item.id, { onError: (err) => setActionError(getErrorMessage(err)) });
+            },
+          },
+          { label: "Cancelar", cancel: true },
+        ],
+      });
+    },
+    [deleteComponent, show],
   );
+
+  const renderItem = useCallback(
+    ({ item }) => <StockItemCard item={item} onLongPress={openActions} onPress={openItem} />,
+    [openActions, openItem],
+  );
+
+  function renderEmpty() {
+    if (componentsQuery.isPending) {
+      return (
+        <View style={styles.state}>
+          <ActivityIndicator color="#ef7f19" />
+          <Text style={styles.stateText}>Carregando estoque...</Text>
+        </View>
+      );
+    }
+    if (componentsQuery.isError) {
+      return (
+        <View style={styles.state}>
+          <Text style={styles.errorText}>{getErrorMessage(componentsQuery.error)}</Text>
+          <Pressable onPress={() => refetch()} style={styles.retry}>
+            <Text style={styles.retryText}>Tentar novamente</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return <Text style={styles.empty}>Nenhum item encontrado.</Text>;
+  }
 
   return (
     <AppShell>
       <AppHeader />
-      <View style={styles.scrollWrap}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Controle de Estoque</Text>
-          <SearchField onChangeText={setSearch} placeholder="Buscar peça ou item..." value={search} />
-          {visibleItems.length === 0 ? (
-            <Text style={styles.empty}>Nenhum item encontrado.</Text>
-          ) : (
-            visibleItems.map((item) => (
-              <Pressable
-                key={item.id}
-                onPress={() => router.push({ pathname: "/stock/edit", params: item })}
-                style={({ pressed }) => [styles.itemCard, pressed && styles.pressed]}
-              >
-                <View style={styles.itemHeading}>
-                  <View style={styles.itemNameWrap}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.category}>{item.category}</Text>
-                  </View>
-                  <Text style={styles.price}>{item.price}</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.itemDetails}>
-                  <Text style={styles.detail}>
-                    Qtd: <Text style={styles.detailStrong}>{item.quantity} un</Text>
-                  </Text>
-                  <Text style={styles.detail}>
-                    Fornecedor: <Text style={styles.detailStrong}>{item.supplier}</Text>
-                  </Text>
-                </View>
-              </Pressable>
-            ))
-          )}
-        </ScrollView>
-      </View>
+      <FlatList
+        ListHeaderComponent={
+          <View>
+            <Text style={styles.title}>Controle de Estoque</Text>
+            <SearchField onChangeText={setSearch} placeholder="Buscar peça ou item..." value={search} />
+            {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
+          </View>
+        }
+        ListEmptyComponent={renderEmpty}
+        contentContainerStyle={styles.content}
+        data={componentsQuery.isError ? [] : visibleItems}
+        keyExtractor={(item) => String(item.id)}
+        keyboardShouldPersistTaps="handled"
+        renderItem={renderItem}
+      />
       <Pressable
         onPress={() => router.push("/stock/new")}
         style={({ pressed }) => [
@@ -138,12 +141,12 @@ export default function StockScreen() {
         <Feather color="#ffffff" name="plus" size={20} />
         <Text style={styles.newButtonText}>Novo Item</Text>
       </Pressable>
+      <ActionMenuSheet config={menu.config} onClose={menu.close} />
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollWrap: { flex: 1 },
   content: { padding: 24, paddingBottom: 120 },
   title: { color: "#092542", fontSize: 32, fontWeight: "800", marginBottom: 26 },
   itemCard: { borderColor: "#dce4ee", borderRadius: 16, borderWidth: 2, marginTop: 18, padding: 22 },
@@ -154,9 +157,15 @@ const styles = StyleSheet.create({
   price: { color: "#ef6f10", fontSize: 18, fontWeight: "800" },
   divider: { backgroundColor: "#dce4ee", height: 1, marginVertical: 20 },
   itemDetails: { flexDirection: "row", justifyContent: "space-between" },
-  detail: { color: "#667994", fontSize: 14 },
+  detail: { color: "#667994", flexShrink: 1, fontSize: 14 },
   detailStrong: { color: "#092542", fontWeight: "800" },
   empty: { color: "#667994", fontSize: 15, marginTop: 28, textAlign: "center" },
+  state: { alignItems: "center", paddingVertical: 32 },
+  stateText: { color: "#667994", fontSize: 15, marginTop: 12 },
+  errorText: { color: "#d71929", fontSize: 15, textAlign: "center" },
+  actionError: { color: "#d71929", fontSize: 14, marginTop: 8 },
+  retry: { marginTop: 12, padding: 10 },
+  retryText: { color: "#ef7f19", fontSize: 15, fontWeight: "700" },
   newButton: {
     alignItems: "center",
     alignSelf: "flex-end",
