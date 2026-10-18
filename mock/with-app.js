@@ -21,7 +21,7 @@ function run(command, args) {
   children.push(child);
   child.on("exit", (code, signal) => {
     if (shuttingDown) return;
-    shutdown(signal ? 0 : code ?? 0);
+    shutdown(signal ? 0 : (code ?? 0));
   });
 }
 

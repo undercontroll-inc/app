@@ -38,10 +38,33 @@
     "mock:json": "bun ./mock/server.js",
     "start:json": "bun ./mock/with-app.js",
     "ios:json": "bun ./mock/with-app.js --ios",
-    "android:json": "bun ./mock/with-app.js --android"
+    "android:json": "bun ./mock/with-app.js --android",
+    "lint": "expo lint",
+    "format": "prettier --write .",
+    "test": "jest"
   },
   "private": true,
   "devDependencies": {
-    "json-server": "0.17.4"
+    "@react-native/jest-preset": "~0.86.3",
+    "@testing-library/react-native": "^14.1.0",
+    "eslint": "^9",
+    "eslint-config-expo": "~57.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.7",
+    "jest": "~29.7.0",
+    "jest-expo": "~57.0.6",
+    "json-server": "0.17.4",
+    "prettier": "^3.9.10",
+    "test-renderer": "^1.0.0"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "setupFiles": [
+      "./jest.setup.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/mock/"
+    ]
   }
 }

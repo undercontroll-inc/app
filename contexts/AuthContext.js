@@ -2,12 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { router } from "expo-router";
 import { setOnUnauthorized } from "../providers/api";
 import { authService } from "../services/AuthService";
-import {
-  clearAuth,
-  hydrateAuth,
-  saveTokens,
-  saveUserData,
-} from "../utils/auth";
+import { clearAuth, hydrateAuth, saveTokens, saveUserData } from "../utils/auth";
 
 const AuthContext = createContext(null);
 

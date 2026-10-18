@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Feather from "@expo/vector-icons/Feather";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -8,11 +8,62 @@ import AppShell from "../../../components/AppShell";
 import SearchField from "../../../components/SearchField";
 
 const initialItems = [
-  { id: "1", name: "Placa Principal", category: "Electrolux · Placas", price: "R$ 150,00", quantity: "10", supplier: "TechParts" },
-  { id: "2", name: "Capacitor 25uF", category: "Nichicon · Capacitores", price: "R$ 18,00", quantity: "80", supplier: "ElecSupply" },
+  {
+    id: "1",
+    name: "Placa Principal",
+    category: "Electrolux · Placas",
+    price: "R$ 150,00",
+    quantity: "10",
+    supplier: "TechParts",
+  },
+  {
+    id: "2",
+    name: "Capacitor 25uF",
+    category: "Nichicon · Capacitores",
+    price: "R$ 18,00",
+    quantity: "80",
+    supplier: "ElecSupply",
+  },
   { id: "3", name: "Motor 1/2HP", category: "WEG · Motores", price: "R$ 220,00", quantity: "8", supplier: "MotorBras" },
-  { id: "4", name: "Resistência", category: "Thermex · Resistências", price: "R$ 45,00", quantity: "30", supplier: "ThermoSupply" },
+  {
+    id: "4",
+    name: "Resistência",
+    category: "Thermex · Resistências",
+    price: "R$ 45,00",
+    quantity: "30",
+    supplier: "ThermoSupply",
+  },
 ];
+
+function applyParams(current, params) {
+  if (params.updatedId && params.name) {
+    return current.map((item) =>
+      item.id === params.updatedId
+        ? {
+            ...item,
+            name: params.name,
+            category: params.category || item.category,
+            price: params.price || item.price,
+            quantity: params.quantity || item.quantity,
+            supplier: params.supplier || item.supplier,
+          }
+        : item,
+    );
+  }
+  if (!params.addedId || !params.name) return current;
+  if (current.some((item) => item.id === params.addedId)) return current;
+  return [
+    ...current,
+    {
+      id: params.addedId,
+      name: params.name,
+      category: params.category || "Sem categoria",
+      price: params.price || "R$ 0,00",
+      quantity: params.quantity || "0",
+      supplier: params.supplier || "Não informado",
+    },
+  ];
+}
 
 export default function StockScreen() {
   const insets = useSafeAreaInsets();
@@ -20,31 +71,20 @@ export default function StockScreen() {
   const [items, setItems] = useState(initialItems);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    if (params.updatedId && params.name) {
-      setItems((current) => current.map((item) => item.id === params.updatedId ? {
-        ...item,
-        name: params.name,
-        category: params.category || item.category,
-        price: params.price || item.price,
-        quantity: params.quantity || item.quantity,
-        supplier: params.supplier || item.supplier,
-      } : item));
-      return;
-    }
-    if (!params.addedId || !params.name) return;
-    setItems((current) => {
-      if (current.some((item) => item.id === params.addedId)) return current;
-      return [...current, {
-        id: params.addedId,
-        name: params.name,
-        category: params.category || "Sem categoria",
-        price: params.price || "R$ 0,00",
-        quantity: params.quantity || "0",
-        supplier: params.supplier || "Não informado",
-      }];
-    });
-  }, [params.addedId, params.category, params.name, params.price, params.quantity, params.supplier, params.updatedId]);
+  const paramsKey = [
+    params.updatedId,
+    params.addedId,
+    params.name,
+    params.category,
+    params.price,
+    params.quantity,
+    params.supplier,
+  ].join("|");
+  const [appliedKey, setAppliedKey] = useState(null);
+  if (paramsKey !== appliedKey) {
+    setAppliedKey(paramsKey);
+    setItems((current) => applyParams(current, params));
+  }
 
   const visibleItems = items.filter((item) =>
     `${item.name} ${item.category} ${item.supplier}`.toLowerCase().includes(search.toLowerCase()),
@@ -59,29 +99,42 @@ export default function StockScreen() {
           <SearchField onChangeText={setSearch} placeholder="Buscar peça ou item..." value={search} />
           {visibleItems.length === 0 ? (
             <Text style={styles.empty}>Nenhum item encontrado.</Text>
-          ) : visibleItems.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => router.push({ pathname: "/stock/edit", params: item })}
-              style={({ pressed }) => [styles.itemCard, pressed && styles.pressed]}
-            >
-              <View style={styles.itemHeading}>
-                <View style={styles.itemNameWrap}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.category}>{item.category}</Text>
+          ) : (
+            visibleItems.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => router.push({ pathname: "/stock/edit", params: item })}
+                style={({ pressed }) => [styles.itemCard, pressed && styles.pressed]}
+              >
+                <View style={styles.itemHeading}>
+                  <View style={styles.itemNameWrap}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.category}>{item.category}</Text>
+                  </View>
+                  <Text style={styles.price}>{item.price}</Text>
                 </View>
-                <Text style={styles.price}>{item.price}</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.itemDetails}>
-                <Text style={styles.detail}>Qtd: <Text style={styles.detailStrong}>{item.quantity} un</Text></Text>
-                <Text style={styles.detail}>Fornecedor: <Text style={styles.detailStrong}>{item.supplier}</Text></Text>
-              </View>
-            </Pressable>
-          ))}
+                <View style={styles.divider} />
+                <View style={styles.itemDetails}>
+                  <Text style={styles.detail}>
+                    Qtd: <Text style={styles.detailStrong}>{item.quantity} un</Text>
+                  </Text>
+                  <Text style={styles.detail}>
+                    Fornecedor: <Text style={styles.detailStrong}>{item.supplier}</Text>
+                  </Text>
+                </View>
+              </Pressable>
+            ))
+          )}
         </ScrollView>
       </View>
-      <Pressable onPress={() => router.push("/stock/new")} style={({ pressed }) => [styles.newButton, { bottom: Platform.OS === "ios" ? 16 + Math.max(insets.bottom, 8) : 22 }, pressed && styles.pressed]}>
+      <Pressable
+        onPress={() => router.push("/stock/new")}
+        style={({ pressed }) => [
+          styles.newButton,
+          { bottom: Platform.OS === "ios" ? 16 + Math.max(insets.bottom, 8) : 22 },
+          pressed && styles.pressed,
+        ]}
+      >
         <Feather color="#ffffff" name="plus" size={20} />
         <Text style={styles.newButtonText}>Novo Item</Text>
       </Pressable>
@@ -104,7 +157,23 @@ const styles = StyleSheet.create({
   detail: { color: "#667994", fontSize: 14 },
   detailStrong: { color: "#092542", fontWeight: "800" },
   empty: { color: "#667994", fontSize: 15, marginTop: 28, textAlign: "center" },
-  newButton: { alignItems: "center", alignSelf: "flex-end", backgroundColor: "#ef7f19", borderRadius: 28, elevation: 8, flexDirection: "row", gap: 8, paddingHorizontal: 22, paddingVertical: 16, position: "absolute", right: 22, shadowColor: "#092542", shadowOffset: { height: 6, width: 0 }, shadowOpacity: 0.25, shadowRadius: 8 },
+  newButton: {
+    alignItems: "center",
+    alignSelf: "flex-end",
+    backgroundColor: "#ef7f19",
+    borderRadius: 28,
+    elevation: 8,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 22,
+    paddingVertical: 16,
+    position: "absolute",
+    right: 22,
+    shadowColor: "#092542",
+    shadowOffset: { height: 6, width: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
   newButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   pressed: { opacity: 0.8 },
 });

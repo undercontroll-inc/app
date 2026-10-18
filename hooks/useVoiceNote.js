@@ -54,13 +54,12 @@ function showPermissionAlert() {
   );
 }
 
-export default function useVoiceNote({ edit = false, orderId } = {}) {
+export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) {
   const recorder = useAudioRecorder(RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder, 80);
   const [activeField, setActiveField] = useState(null);
   const [status, setStatus] = useState("idle");
   const [errorMessage, setErrorMessage] = useState("");
-  const [patchWarning, setPatchWarning] = useState("");
   const [uri, setUri] = useState(null);
   const [durationMs, setDurationMs] = useState(0);
   const [draftText, setDraftText] = useState("");
@@ -69,7 +68,10 @@ export default function useVoiceNote({ edit = false, orderId } = {}) {
   const seenRecording = useRef(false);
   const stopping = useRef(false);
   const transcribingLock = useRef(false);
-  uriRef.current = uri;
+
+  useEffect(() => {
+    uriRef.current = uri;
+  }, [uri]);
 
   const clearFile = useCallback((path) => {
     deleteRecordingFile(path);
@@ -131,7 +133,6 @@ export default function useVoiceNote({ edit = false, orderId } = {}) {
   const beginRecording = useCallback(
     async (field, { setValue, patchKey }) => {
       setErrorMessage("");
-      setPatchWarning("");
       const permission = await requestRecordingPermissionsAsync();
       if (!permission.granted) {
         showPermissionAlert();
@@ -160,17 +161,20 @@ export default function useVoiceNote({ edit = false, orderId } = {}) {
     [recorder],
   );
 
-  const start = useCallback((field, options) => {
-    if (Platform.OS === "web") {
-      Alert.alert("Indisponível no navegador", "Grave o áudio pelo app no celular.");
-      return;
-    }
-    if (status !== "idle" && status !== "error") return;
-    pendingRef.current = options;
-    setActiveField(field);
-    setErrorMessage("");
-    setStatus("ready");
-  }, [status]);
+  const start = useCallback(
+    (field, options) => {
+      if (Platform.OS === "web") {
+        Alert.alert("Indisponível no navegador", "Grave o áudio pelo app no celular.");
+        return;
+      }
+      if (status !== "idle" && status !== "error") return;
+      pendingRef.current = options;
+      setActiveField(field);
+      setErrorMessage("");
+      setStatus("ready");
+    },
+    [status],
+  );
 
   const record = useCallback(async () => {
     if (status !== "ready" && status !== "error") return;
@@ -227,9 +231,8 @@ export default function useVoiceNote({ edit = false, orderId } = {}) {
       if (edit && orderId && pending.patchKey) {
         try {
           await orderService.update(orderId, { [pending.patchKey]: nextValue });
-          setPatchWarning("");
         } catch (error) {
-          setPatchWarning(
+          onWarning?.(
             getAxiosErrorMessage(error) || "Texto aplicado, mas não foi possível salvar. Use o botão de salvar da OS.",
           );
         }
@@ -241,7 +244,7 @@ export default function useVoiceNote({ edit = false, orderId } = {}) {
       setStatus("idle");
       setErrorMessage("");
     },
-    [draftText, edit, orderId],
+    [draftText, edit, onWarning, orderId],
   );
 
   const cancel = useCallback(async () => {
@@ -296,7 +299,17 @@ export default function useVoiceNote({ edit = false, orderId } = {}) {
         disabled: Platform.OS === "web" || (busy && !active),
       };
     },
-    [activeField, busy, draftText, durationMs, errorMessage, recorderState.durationMillis, recorderState.metering, status, uri],
+    [
+      activeField,
+      busy,
+      draftText,
+      durationMs,
+      errorMessage,
+      recorderState.durationMillis,
+      recorderState.metering,
+      status,
+      uri,
+    ],
   );
 
   return {
@@ -311,6 +324,5 @@ export default function useVoiceNote({ edit = false, orderId } = {}) {
     cancel,
     setDraftText,
     stateFor,
-    patchWarning,
   };
 }

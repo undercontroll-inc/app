@@ -21,10 +21,7 @@ const markdownStyles = {
 };
 
 export default function ChatMessage({ message }) {
-  const markdownValue = useMemo(
-    () => normalizeMarkdown(message.content),
-    [message.content],
-  );
+  const markdownValue = useMemo(() => normalizeMarkdown(message.content), [message.content]);
   const elements = useMarkdown(markdownValue, {
     colorScheme: "light",
     styles: markdownStyles,

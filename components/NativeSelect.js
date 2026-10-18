@@ -12,14 +12,7 @@ function getStatusColor(status) {
   return "#f2994a";
 }
 
-export default function NativeSelect({
-  label,
-  value,
-  options,
-  onSelect,
-  dark,
-  statusIndicator,
-}) {
+export default function NativeSelect({ label, value, options, onSelect, dark, statusIndicator }) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -37,10 +30,7 @@ export default function NativeSelect({
   return (
     <View style={styles.field}>
       {!!label && <Text style={styles.fieldLabel}>{label}</Text>}
-      <Pressable
-        onPress={openPicker}
-        style={[styles.fieldBox, dark && styles.darkSelect]}
-      >
+      <Pressable onPress={openPicker} style={[styles.fieldBox, dark && styles.darkSelect]}>
         <View style={styles.valueRow}>
           {statusIndicator && <View style={[styles.statusDot, { backgroundColor: getStatusColor(value) }]} />}
           <Text style={[styles.fieldValue, dark && styles.darkSelectValue]}>{value}</Text>
@@ -70,7 +60,10 @@ export default function NativeSelect({
               <Pressable onPress={confirm} style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
                 <Text style={styles.confirmButtonText}>Confirmar</Text>
               </Pressable>
-              <Pressable onPress={() => setOpen(false)} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+              <Pressable
+                onPress={() => setOpen(false)}
+                style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+              >
                 <Text style={[styles.cancelButtonText, dark && styles.darkActionText]}>Cancelar</Text>
               </Pressable>
             </View>

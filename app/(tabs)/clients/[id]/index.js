@@ -1,13 +1,5 @@
 import { useCallback, useState } from "react";
-import {
-  ActivityIndicator,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import AppShell from "../../../../components/AppShell";
@@ -113,13 +105,19 @@ export default function ClientDetailScreen() {
           <Text style={styles.phone}>{client.phone || "Telefone não informado"}</Text>
           <View style={styles.actions}>
             {callUrl ? (
-              <Pressable onPress={() => openContact(callUrl)} style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
+              <Pressable
+                onPress={() => openContact(callUrl)}
+                style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+              >
                 <Feather color="#ef7f19" name="phone" size={16} />
                 <Text style={styles.actionText}>Ligar</Text>
               </Pressable>
             ) : null}
             {chatUrl ? (
-              <Pressable onPress={() => openContact(chatUrl)} style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
+              <Pressable
+                onPress={() => openContact(chatUrl)}
+                style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+              >
                 <Feather color="#ef7f19" name="message-circle" size={16} />
                 <Text style={styles.actionText}>WhatsApp</Text>
               </Pressable>

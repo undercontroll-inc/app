@@ -16,7 +16,8 @@ export function StockItemForm({ edit = false }) {
     return {
       name: params.name || "",
       brand: params.brand || (categoryParts.length > 1 ? categoryParts[0] : ""),
-      category: params.formCategory || (categoryParts.length > 1 ? categoryParts.slice(1).join(" · ") : params.category || ""),
+      category:
+        params.formCategory || (categoryParts.length > 1 ? categoryParts.slice(1).join(" · ") : params.category || ""),
       quantity: params.quantity || "",
       price: params.price || "",
       supplier: params.supplier || "",
@@ -62,32 +63,76 @@ export function StockItemForm({ edit = false }) {
           onClose={() => router.back()}
           title={edit ? "Editar Item" : "Cadastrar Novo Item"}
         />
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.formCard}>
             <Text style={styles.sectionTitle}>Dados do Item</Text>
-            <Field label="Item" value={form.name} onChangeText={(value) => updateField("name", value)} placeholder="Nome do item" />
+            <Field
+              label="Item"
+              value={form.name}
+              onChangeText={(value) => updateField("name", value)}
+              placeholder="Nome do item"
+            />
             <View style={styles.row}>
               <View style={styles.half}>
-                <Field label="Marca" value={form.brand} onChangeText={(value) => updateField("brand", value)} placeholder="Marca" />
+                <Field
+                  label="Marca"
+                  value={form.brand}
+                  onChangeText={(value) => updateField("brand", value)}
+                  placeholder="Marca"
+                />
               </View>
               <View style={styles.half}>
-                <Field label="Categoria" value={form.category} onChangeText={(value) => updateField("category", value)} placeholder="Categoria" />
+                <Field
+                  label="Categoria"
+                  value={form.category}
+                  onChangeText={(value) => updateField("category", value)}
+                  placeholder="Categoria"
+                />
               </View>
             </View>
             <View style={styles.row}>
               <View style={styles.half}>
-                <Field label="Quantidade" value={form.quantity} onChangeText={(value) => updateField("quantity", value)} placeholder="0" keyboardType="numeric" />
+                <Field
+                  label="Quantidade"
+                  value={form.quantity}
+                  onChangeText={(value) => updateField("quantity", value)}
+                  placeholder="0"
+                  keyboardType="numeric"
+                />
               </View>
               <View style={styles.half}>
-                <Field label="Preço Unitário (R$)" value={form.price} onChangeText={(value) => updateField("price", value)} placeholder="R$ 0,00" />
+                <Field
+                  label="Preço Unitário (R$)"
+                  value={form.price}
+                  onChangeText={(value) => updateField("price", value)}
+                  placeholder="R$ 0,00"
+                />
               </View>
             </View>
-            <Field label="Fornecedor" value={form.supplier} onChangeText={(value) => updateField("supplier", value)} placeholder="Fornecedor" />
-            <Field label="Descrição (opcional)" value={form.description} onChangeText={(value) => updateField("description", value)} placeholder="Insira uma descrição" multiline />
+            <Field
+              label="Fornecedor"
+              value={form.supplier}
+              onChangeText={(value) => updateField("supplier", value)}
+              placeholder="Fornecedor"
+            />
+            <Field
+              label="Descrição (opcional)"
+              value={form.description}
+              onChangeText={(value) => updateField("description", value)}
+              placeholder="Insira uma descrição"
+              multiline
+            />
           </View>
         </ScrollView>
         <View style={[styles.footer, { paddingBottom: bottomDockPadding(insets) }]}>
-          <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+          >
             <Text style={styles.cancelText}>Cancelar</Text>
           </Pressable>
           <Pressable onPress={handleSubmit} style={({ pressed }) => [styles.submitButton, pressed && styles.pressed]}>
@@ -122,18 +167,57 @@ function Field({ label, multiline, ...props }) {
 const styles = StyleSheet.create({
   screen: { backgroundColor: "#ffffff", flex: 1 },
   content: { padding: 20, paddingBottom: 36 },
-  formCard: { borderColor: "#dce4ee", borderRadius: 16, borderWidth: 2, marginBottom: 18, padding: 20, paddingBottom: 36 },
+  formCard: {
+    borderColor: "#dce4ee",
+    borderRadius: 16,
+    borderWidth: 2,
+    marginBottom: 18,
+    padding: 20,
+    paddingBottom: 36,
+  },
   sectionTitle: { color: "#092542", fontSize: 23, fontWeight: "800", marginBottom: 20 },
   row: { flexDirection: "row", gap: 12 },
   half: { flex: 1 },
   field: { flex: 1, marginBottom: 18, minWidth: 125 },
   label: { color: "#667994", fontSize: 14, marginBottom: 8 },
-  input: { borderColor: "#dce4ee", borderRadius: 11, borderWidth: 2, color: "#092542", fontSize: 15, minHeight: 54, paddingHorizontal: 14, paddingVertical: 10 },
+  input: {
+    borderColor: "#dce4ee",
+    borderRadius: 11,
+    borderWidth: 2,
+    color: "#092542",
+    fontSize: 15,
+    minHeight: 54,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
   descriptionInput: { minHeight: 108, paddingTop: 10, textAlignVertical: "top" },
-  footer: { backgroundColor: "#ffffff", borderColor: "#dce4ee", borderTopWidth: 1, flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingTop: 16 },
-  cancelButton: { alignItems: "center", borderColor: "#dce4ee", borderRadius: 30, borderWidth: 2, flex: 1, justifyContent: "center", paddingVertical: 16 },
+  footer: {
+    backgroundColor: "#ffffff",
+    borderColor: "#dce4ee",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  cancelButton: {
+    alignItems: "center",
+    borderColor: "#dce4ee",
+    borderRadius: 30,
+    borderWidth: 2,
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 16,
+  },
   cancelText: { color: "#667994", fontSize: 16, fontWeight: "800" },
-  submitButton: { alignItems: "center", backgroundColor: "#ef7f19", borderRadius: 30, flex: 1, justifyContent: "center", paddingVertical: 16 },
+  submitButton: {
+    alignItems: "center",
+    backgroundColor: "#ef7f19",
+    borderRadius: 30,
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 16,
+  },
   submitText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
   pressed: { opacity: 0.8 },
 });

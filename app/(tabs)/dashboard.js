@@ -22,13 +22,48 @@ const categories = [
 ];
 
 const insights = [
-  { color: "#ef7f19", icon: "briefcase", title: "TENDÊNCIA DE ALTA", text: "Ar-condicionado apresenta crescimento consistente em vendas (+12,4%). Considere ampliar o estoque de peças como compressores, placas eletrônicas e filtros para atender a demanda crescente de reparos." },
-  { color: "#08b77a", icon: "box", title: "OPORTUNIDADE DE ESTOQUE", text: "Lava-louças registram aumento de 23% nas vendas. Como é uma categoria com alto índice de manutenção, vale preparar peças de reposição como bombas d'água e resistências." },
-  { color: "#367ff1", icon: "lightbulb", title: "ALERTA DE PREÇO", text: "Micro-ondas tiveram alta de 18,3% nos últimos 30 dias. Preços elevados podem levar consumidores a optar pelo reparo ao invés da troca - oportunidade direta para seu negócio." },
-  { color: "#ef7f19", icon: "briefcase", title: "OPORTUNIDADE DE REPARO", text: "Air Fryers têm a maior queda de preço (-5,8%), mas continuam entre os mais vendidos. Equipamentos populares com preço acessível geram alto volume de manutenção após a garantia." },
-  { color: "#8b5cf6", icon: "award", title: "DESTAQUE DE MARCA", text: "Electrolux representa a maior fatia dos produtos monitorados (32%). Priorize treinamento técnico e estoque de peças para esta marca - ela domina a base instalada dos seus potenciais clientes." },
-  { color: "#ed3d4d", icon: "star", title: "ALERTA DE MERCADO", text: "Categoria de Aspiradores de Pó apresentou queda de 15% em disponibilidade nos marketplaces. Isso pode indicar problemas na cadeia de suprimentos - antecipe compras de peças antes de possível escassez." },
-  { color: "#f59e0b", icon: "award", title: "RECOMENDAÇÃO", text: "Com base nos dados, as 3 categorias com maior potencial de reparo este mês são: Ar-condicionado, Micro-ondas e Lava-louças. Considere criar pacotes promocionais de manutenção preventiva para esses itens." },
+  {
+    color: "#ef7f19",
+    icon: "briefcase",
+    title: "TENDÊNCIA DE ALTA",
+    text: "Ar-condicionado apresenta crescimento consistente em vendas (+12,4%). Considere ampliar o estoque de peças como compressores, placas eletrônicas e filtros para atender a demanda crescente de reparos.",
+  },
+  {
+    color: "#08b77a",
+    icon: "box",
+    title: "OPORTUNIDADE DE ESTOQUE",
+    text: "Lava-louças registram aumento de 23% nas vendas. Como é uma categoria com alto índice de manutenção, vale preparar peças de reposição como bombas d'água e resistências.",
+  },
+  {
+    color: "#367ff1",
+    icon: "lightbulb",
+    title: "ALERTA DE PREÇO",
+    text: "Micro-ondas tiveram alta de 18,3% nos últimos 30 dias. Preços elevados podem levar consumidores a optar pelo reparo ao invés da troca - oportunidade direta para seu negócio.",
+  },
+  {
+    color: "#ef7f19",
+    icon: "briefcase",
+    title: "OPORTUNIDADE DE REPARO",
+    text: "Air Fryers têm a maior queda de preço (-5,8%), mas continuam entre os mais vendidos. Equipamentos populares com preço acessível geram alto volume de manutenção após a garantia.",
+  },
+  {
+    color: "#8b5cf6",
+    icon: "award",
+    title: "DESTAQUE DE MARCA",
+    text: "Electrolux representa a maior fatia dos produtos monitorados (32%). Priorize treinamento técnico e estoque de peças para esta marca - ela domina a base instalada dos seus potenciais clientes.",
+  },
+  {
+    color: "#ed3d4d",
+    icon: "star",
+    title: "ALERTA DE MERCADO",
+    text: "Categoria de Aspiradores de Pó apresentou queda de 15% em disponibilidade nos marketplaces. Isso pode indicar problemas na cadeia de suprimentos - antecipe compras de peças antes de possível escassez.",
+  },
+  {
+    color: "#f59e0b",
+    icon: "award",
+    title: "RECOMENDAÇÃO",
+    text: "Com base nos dados, as 3 categorias com maior potencial de reparo este mês são: Ar-condicionado, Micro-ondas e Lava-louças. Considere criar pacotes promocionais de manutenção preventiva para esses itens.",
+  },
 ];
 
 function SectionCard({ children, style }) {
@@ -62,7 +97,13 @@ export default function DashboardScreen() {
 
         <View style={styles.periods}>
           {["30 dias", "60 dias"].map((option) => (
-            <Pressable accessibilityRole="button" accessibilityState={{ selected: period === option }} key={option} onPress={() => setPeriod(option)} style={[styles.period, period === option && styles.periodSelected]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: period === option }}
+              key={option}
+              onPress={() => setPeriod(option)}
+              style={[styles.period, period === option && styles.periodSelected]}
+            >
               <Text style={[styles.periodText, period === option && styles.periodTextSelected]}>{option}</Text>
             </Pressable>
           ))}
@@ -70,12 +111,16 @@ export default function DashboardScreen() {
 
         <View style={styles.metrics}>
           <SectionCard style={styles.metricCard}>
-            <View style={styles.metricIcon}><Feather color="#ef7f19" name="search" size={19} /></View>
+            <View style={styles.metricIcon}>
+              <Feather color="#ef7f19" name="search" size={19} />
+            </View>
             <Text style={styles.metricValue}>1.247</Text>
             <Text style={styles.metricLabel}>Produtos Analisados</Text>
           </SectionCard>
           <SectionCard style={styles.metricCard}>
-            <View style={styles.metricIcon}><Feather color="#ef7f19" name="layers" size={19} /></View>
+            <View style={styles.metricIcon}>
+              <Feather color="#ef7f19" name="layers" size={19} />
+            </View>
             <Text style={styles.metricValue}>34</Text>
             <Text style={styles.metricLabel}>Marcas Analisadas</Text>
           </SectionCard>
@@ -86,7 +131,9 @@ export default function DashboardScreen() {
           {brands.map((brand) => (
             <View key={brand.name} style={styles.brandRow}>
               <Text style={styles.brandName}>{brand.name}</Text>
-              <View style={styles.barTrack}><View style={[styles.bar, { width: `${(brand.value / 23) * 100}%` }]} /></View>
+              <View style={styles.barTrack}>
+                <View style={[styles.bar, { width: `${(brand.value / 23) * 100}%` }]} />
+              </View>
               <Text style={styles.percent}>{brand.value}%</Text>
             </View>
           ))}
@@ -95,7 +142,10 @@ export default function DashboardScreen() {
         <SectionCard style={styles.categoriesCard}>
           <Text style={styles.sectionTitle}>Categorias Mais vendidas (Unidades)</Text>
           {categories.map(([name, value]) => (
-            <View key={name} style={styles.categoryRow}><Text style={styles.categoryName}>{name}</Text><Text style={styles.categoryValue}>{value}</Text></View>
+            <View key={name} style={styles.categoryRow}>
+              <Text style={styles.categoryName}>{name}</Text>
+              <Text style={styles.categoryValue}>{value}</Text>
+            </View>
           ))}
         </SectionCard>
 
@@ -103,7 +153,9 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>Insights de Mercado</Text>
           <Feather color="#092542" name="star" size={21} />
         </View>
-        {insights.map((insight) => <InsightCard insight={insight} key={insight.title} />)}
+        {insights.map((insight) => (
+          <InsightCard insight={insight} key={insight.title} />
+        ))}
       </ScrollView>
     </AppShell>
   );
@@ -121,7 +173,14 @@ const styles = StyleSheet.create({
   metrics: { flexDirection: "row", gap: 10, marginBottom: 20 },
   card: { backgroundColor: "#fff", borderColor: "#dce4ee", borderRadius: 12, borderWidth: 1 },
   metricCard: { flex: 1, minHeight: 107, padding: 10 },
-  metricIcon: { alignItems: "center", backgroundColor: "#fff4e9", borderRadius: 8, height: 30, justifyContent: "center", width: 30 },
+  metricIcon: {
+    alignItems: "center",
+    backgroundColor: "#fff4e9",
+    borderRadius: 8,
+    height: 30,
+    justifyContent: "center",
+    width: 30,
+  },
   metricValue: { color: "#092542", fontSize: 20, fontWeight: "800", marginTop: 7 },
   metricLabel: { color: "#667994", fontSize: 13, marginTop: 2 },
   brandsCard: { padding: 15 },

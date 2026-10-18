@@ -6,7 +6,9 @@ export default function AppShell({ children }) {
   return (
     <SafeAreaView collapsable={false} edges={["top"]} style={styles.safeArea}>
       <StatusBar style="light" />
-      <View collapsable={false} style={styles.content}>{children}</View>
+      <View collapsable={false} style={styles.content}>
+        {children}
+      </View>
     </SafeAreaView>
   );
 }

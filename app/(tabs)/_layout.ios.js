@@ -19,12 +19,7 @@ function NativeTabsLayout() {
   const { hidden } = useTabBarVisibility();
 
   return (
-    <NativeTabs
-      disableTransparentOnScrollEdge
-      hidden={hidden}
-      minimizeBehavior="onScrollDown"
-      tintColor="#ef7f19"
-    >
+    <NativeTabs disableTransparentOnScrollEdge hidden={hidden} minimizeBehavior="onScrollDown" tintColor="#ef7f19">
       <NativeTabs.Trigger name="orders">
         <NativeTabs.Trigger.Label>Consertos</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="wrench.and.screwdriver" />

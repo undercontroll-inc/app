@@ -5,11 +5,7 @@ import { createSseParser, parseApiErrorBody } from "../utils/chat";
 
 class ChatService {
   async sendMessage(content) {
-    const response = await apiClient.post(
-      "/chats/messages",
-      { content },
-      { timeout: 60000 },
-    );
+    const response = await apiClient.post("/chats/messages", { content }, { timeout: 60000 });
     return response.data;
   }
 

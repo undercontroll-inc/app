@@ -64,7 +64,8 @@ export default function ClientsScreen() {
   const visibleClients = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return clients.filter((client) => {
-      const searchable = `${client.name || ""} ${client.lastName || ""} ${client.cpf || ""} ${client.phone || ""} ${client.email || ""}`.toLowerCase();
+      const searchable =
+        `${client.name || ""} ${client.lastName || ""} ${client.cpf || ""} ${client.phone || ""} ${client.email || ""}`.toLowerCase();
       return searchable.includes(normalizedSearch);
     });
   }, [clients, search]);

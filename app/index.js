@@ -1,9 +1,18 @@
 import { useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Image } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function LoginScreen() {
@@ -81,7 +90,11 @@ export default function LoginScreen() {
                 </Pressable>
               </View>
               {!!feedback && <Text style={styles.feedback}>{feedback}</Text>}
-              <Pressable disabled={submitting} onPress={handleLogin} style={[styles.button, submitting && styles.buttonDisabled]}>
+              <Pressable
+                disabled={submitting}
+                onPress={handleLogin}
+                style={[styles.button, submitting && styles.buttonDisabled]}
+              >
                 <Text style={styles.buttonText}>{submitting ? "Entrando..." : "Entrar"}</Text>
               </Pressable>
             </View>
@@ -103,12 +116,35 @@ const styles = StyleSheet.create({
   form: { marginTop: 34 },
   label: { color: "#fff", fontSize: 12, marginBottom: 7 },
   passwordLabel: { marginTop: 20 },
-  input: { backgroundColor: "#102f4c", borderColor: "#2b5c88", borderRadius: 7, borderWidth: 1, color: "#fff", height: 45, paddingHorizontal: 14 },
-  passwordBox: { alignItems: "center", backgroundColor: "#102f4c", borderColor: "#2b5c88", borderRadius: 7, borderWidth: 1, flexDirection: "row", height: 45 },
+  input: {
+    backgroundColor: "#102f4c",
+    borderColor: "#2b5c88",
+    borderRadius: 7,
+    borderWidth: 1,
+    color: "#fff",
+    height: 45,
+    paddingHorizontal: 14,
+  },
+  passwordBox: {
+    alignItems: "center",
+    backgroundColor: "#102f4c",
+    borderColor: "#2b5c88",
+    borderRadius: 7,
+    borderWidth: 1,
+    flexDirection: "row",
+    height: 45,
+  },
   passwordInput: { color: "#fff", flex: 1, height: "100%", paddingHorizontal: 14 },
   visibility: { alignItems: "center", justifyContent: "center", paddingHorizontal: 12, paddingVertical: 10 },
   feedback: { color: "#ffb0a8", fontSize: 12, marginTop: 12 },
-  button: { alignItems: "center", backgroundColor: "#ef7f19", borderRadius: 8, height: 45, justifyContent: "center", marginTop: 22 },
+  button: {
+    alignItems: "center",
+    backgroundColor: "#ef7f19",
+    borderRadius: 8,
+    height: 45,
+    justifyContent: "center",
+    marginTop: 22,
+  },
   buttonDisabled: { opacity: 0.7 },
   buttonText: { color: "#fff", fontWeight: "700" },
 });

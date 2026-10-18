@@ -50,12 +50,7 @@ export default function DateField({ label, value, onChange }) {
         <Feather color="#667994" name="calendar" size={18} />
       </Pressable>
       {open && Platform.OS === "android" && (
-        <DateTimePicker
-          display="default"
-          mode="date"
-          onChange={handleAndroidChange}
-          value={selected}
-        />
+        <DateTimePicker display="default" mode="date" onChange={handleAndroidChange} value={selected} />
       )}
       {Platform.OS !== "android" && (
         <Modal animationType="slide" onRequestClose={() => setOpen(false)} transparent visible={open}>
@@ -70,10 +65,16 @@ export default function DateField({ label, value, onChange }) {
                 value={draft}
               />
               <View style={styles.sheetActions}>
-                <Pressable onPress={() => apply(draft)} style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
+                <Pressable
+                  onPress={() => apply(draft)}
+                  style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}
+                >
                   <Text style={styles.confirmButtonText}>Confirmar</Text>
                 </Pressable>
-                <Pressable onPress={() => setOpen(false)} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+                <Pressable
+                  onPress={() => setOpen(false)}
+                  style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+                >
                   <Text style={styles.cancelButtonText}>Cancelar</Text>
                 </Pressable>
               </View>

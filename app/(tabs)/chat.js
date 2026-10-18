@@ -44,9 +44,7 @@ export default function ChatScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const sending = messages.some(
-    (message) =>
-      message.role === "assistant" &&
-      (message.status === "pending" || message.status === "streaming"),
+    (message) => message.role === "assistant" && (message.status === "pending" || message.status === "streaming"),
   );
   const hasThread = messages.length > 0;
   const maintainVisibleContentPosition = useMemo(
@@ -115,90 +113,93 @@ export default function ChatScreen() {
     loadSuggestions();
   }, [loadSuggestions]);
 
-  const sendMessage = useCallback(async (text) => {
-    const content = String(text || "").trim();
-    if (!content || sending) return;
+  const sendMessage = useCallback(
+    async (text) => {
+      const content = String(text || "").trim();
+      if (!content || sending) return;
 
-    setDraft("");
-    const currentRequest = requestId.current + 1;
-    requestId.current = currentRequest;
-    streamAbort.current?.abort();
-    const controller = new AbortController();
-    streamAbort.current = controller;
+      setDraft("");
+      const currentRequest = requestId.current + 1;
+      requestId.current = currentRequest;
+      streamAbort.current?.abort();
+      const controller = new AbortController();
+      streamAbort.current = controller;
 
-    const userMessage = createMessage({ role: "user", content, status: "complete" });
-    const assistantMessage = createMessage({ role: "assistant", content: "", status: "pending" });
-    setMessages((current) => [...current, userMessage, assistantMessage]);
+      const userMessage = createMessage({ role: "user", content, status: "complete" });
+      const assistantMessage = createMessage({ role: "assistant", content: "", status: "pending" });
+      setMessages((current) => [...current, userMessage, assistantMessage]);
 
-    const updateAssistant = (updater) => {
-      if (requestId.current !== currentRequest) return;
-      setMessages((current) =>
-        current.map((message) => (message.id === assistantMessage.id ? updater(message) : message)),
-      );
-    };
-
-    try {
-      await chatService.streamMessage({
-        content,
-        signal: controller.signal,
-        onEvent: (event) => {
-          if (requestId.current !== currentRequest) return;
-          if (event.event === "delta") {
-            const chunk = event.data?.content ?? "";
-            updateAssistant((message) => ({
-              ...message,
-              content: `${message.content}${chunk}`,
-              status: "streaming",
-            }));
-            return;
-          }
-          if (event.event === "done") {
-            const reply = event.data?.content;
-            updateAssistant((message) => ({
-              ...message,
-              content: reply || message.content || "Não recebi uma resposta.",
-              status: "complete",
-            }));
-            return;
-          }
-          if (event.event === "error") {
-            updateAssistant((message) => ({
-              ...message,
-              content: event.data?.message || "Não foi possível responder.",
-              status: "error",
-            }));
-          }
-        },
-      });
-      updateAssistant((message) => {
-        if (message.status === "complete" || message.status === "error") return message;
-        return {
-          ...message,
-          content: message.content || "Não recebi uma resposta.",
-          status: message.content ? "complete" : "error",
-        };
-      });
-    } catch (error) {
-      if (requestId.current !== currentRequest) return;
-      if (isAbortError(error)) {
-        updateAssistant((message) =>
-          message.status === "pending" || message.status === "streaming"
-            ? {
-                ...message,
-                content: message.content || "Resposta interrompida.",
-                status: message.content ? "complete" : "error",
-              }
-            : message,
+      const updateAssistant = (updater) => {
+        if (requestId.current !== currentRequest) return;
+        setMessages((current) =>
+          current.map((message) => (message.id === assistantMessage.id ? updater(message) : message)),
         );
-        return;
+      };
+
+      try {
+        await chatService.streamMessage({
+          content,
+          signal: controller.signal,
+          onEvent: (event) => {
+            if (requestId.current !== currentRequest) return;
+            if (event.event === "delta") {
+              const chunk = event.data?.content ?? "";
+              updateAssistant((message) => ({
+                ...message,
+                content: `${message.content}${chunk}`,
+                status: "streaming",
+              }));
+              return;
+            }
+            if (event.event === "done") {
+              const reply = event.data?.content;
+              updateAssistant((message) => ({
+                ...message,
+                content: reply || message.content || "Não recebi uma resposta.",
+                status: "complete",
+              }));
+              return;
+            }
+            if (event.event === "error") {
+              updateAssistant((message) => ({
+                ...message,
+                content: event.data?.message || "Não foi possível responder.",
+                status: "error",
+              }));
+            }
+          },
+        });
+        updateAssistant((message) => {
+          if (message.status === "complete" || message.status === "error") return message;
+          return {
+            ...message,
+            content: message.content || "Não recebi uma resposta.",
+            status: message.content ? "complete" : "error",
+          };
+        });
+      } catch (error) {
+        if (requestId.current !== currentRequest) return;
+        if (isAbortError(error)) {
+          updateAssistant((message) =>
+            message.status === "pending" || message.status === "streaming"
+              ? {
+                  ...message,
+                  content: message.content || "Resposta interrompida.",
+                  status: message.content ? "complete" : "error",
+                }
+              : message,
+          );
+          return;
+        }
+        updateAssistant((message) => ({
+          ...message,
+          content: error?.message || getAxiosErrorMessage(error),
+          status: "error",
+        }));
       }
-      updateAssistant((message) => ({
-        ...message,
-        content: error?.message || getAxiosErrorMessage(error),
-        status: "error",
-      }));
-    }
-  }, [sending]);
+    },
+    [sending],
+  );
 
   const handleSend = useCallback(() => {
     sendMessage(draft);

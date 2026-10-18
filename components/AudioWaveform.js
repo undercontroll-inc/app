@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 const BAR_COUNT = 36;
+
+function idleLevels() {
+  return Array(BAR_COUNT).fill(0.1);
+}
 
 function levelFromDb(db) {
   if (typeof db !== "number" || Number.isNaN(db)) return 0.1;
@@ -10,22 +14,13 @@ function levelFromDb(db) {
 }
 
 export default function AudioWaveform({ metering, active, tick }) {
-  const [levels, setLevels] = useState(() => Array(BAR_COUNT).fill(0.1));
+  const [levels, setLevels] = useState(idleLevels);
+  const [sample, setSample] = useState({ active, metering, tick });
 
-  useEffect(() => {
-    if (!active) {
-      setLevels(Array(BAR_COUNT).fill(0.1));
-    }
-  }, [active]);
-
-  useEffect(() => {
-    if (!active) return;
-    setLevels((current) => {
-      const next = current.slice(1);
-      next.push(levelFromDb(metering));
-      return next;
-    });
-  }, [active, metering, tick]);
+  if (sample.active !== active || sample.metering !== metering || sample.tick !== tick) {
+    setSample({ active, metering, tick });
+    setLevels((current) => (active ? [...current.slice(1), levelFromDb(metering)] : idleLevels()));
+  }
 
   return (
     <View accessibilityLabel="Nível do áudio" style={styles.track}>

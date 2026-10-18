@@ -17,7 +17,11 @@ export default function ChatSuggestions({ suggestions, loading, error, refreshin
             onPress={onRefresh}
             style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
           >
-            {refreshing ? <ActivityIndicator color="#667994" /> : <Feather color="#667994" name="refresh-cw" size={18} />}
+            {refreshing ? (
+              <ActivityIndicator color="#667994" />
+            ) : (
+              <Feather color="#667994" name="refresh-cw" size={18} />
+            )}
           </Pressable>
           <Pressable
             accessibilityLabel={collapsed ? "Mostrar sugestões" : "Ocultar sugestões"}

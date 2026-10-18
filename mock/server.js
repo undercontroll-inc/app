@@ -23,11 +23,17 @@ function nextId(collection) {
 }
 
 function findUser(id) {
-  return db().get("users").find({ id: Number(id) }).value();
+  return db()
+    .get("users")
+    .find({ id: Number(id) })
+    .value();
 }
 
 function findComponent(id) {
-  return db().get("components").find({ id: Number(id) }).value();
+  return db()
+    .get("components")
+    .find({ id: Number(id) })
+    .value();
 }
 
 function publicUser(user) {
@@ -82,7 +88,9 @@ function replaceDemands(orderId, partsPayload = []) {
       orderId: Number(orderId),
       quantity: Number(part.quantity) || 1,
     }));
-  db().set("demands", [...remaining, ...created]).write();
+  db()
+    .set("demands", [...remaining, ...created])
+    .write();
 }
 
 server.use(middlewares);
@@ -97,7 +105,9 @@ server.use((req, _res, next) => {
 });
 
 server.post("/auth", (req, res) => {
-  const email = String(req.body?.email || "").trim().toLowerCase();
+  const email = String(req.body?.email || "")
+    .trim()
+    .toLowerCase();
   const password = String(req.body?.password || "");
   const user = (db().get("users").value() ?? []).find((item) => item.email.toLowerCase() === email);
 
@@ -179,7 +189,10 @@ server.post("/orders/:orderId/demands", (req, res) => {
 });
 
 server.delete("/orders/:orderId/demands/:demandId", (req, res) => {
-  db().get("demands").remove({ id: Number(req.params.demandId) }).write();
+  db()
+    .get("demands")
+    .remove({ id: Number(req.params.demandId) })
+    .write();
   return res.status(204).end();
 });
 
@@ -192,14 +205,20 @@ server.delete("/orders/:orderId/demands", (req, res) => {
 });
 
 server.get("/orders/:orderId/items", (req, res) => {
-  const order = db().get("orders").find({ id: Number(req.params.orderId) }).value();
+  const order = db()
+    .get("orders")
+    .find({ id: Number(req.params.orderId) })
+    .value();
   if (!order) return res.status(404).json({ message: "Ordem não encontrada" });
   return res.json(order.appliances ?? []);
 });
 
 server.get("/orders/:id", (req, res, next) => {
   if (Number.isNaN(Number(req.params.id))) return next();
-  const order = db().get("orders").find({ id: Number(req.params.id) }).value();
+  const order = db()
+    .get("orders")
+    .find({ id: Number(req.params.id) })
+    .value();
   if (!order) return res.status(404).json({ message: "Ordem não encontrada" });
   return res.json({ data: order });
 });

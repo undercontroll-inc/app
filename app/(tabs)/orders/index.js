@@ -1,14 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppShell from "../../../components/AppShell";
@@ -99,15 +90,11 @@ export default function OrdersScreen() {
   async function setOrderCompleted(order, completed) {
     const nextStatus = completed ? "Concluído" : "Pendente";
     const previous = order.status;
-    setOrders((current) =>
-      current.map((item) => (item.id === order.id ? { ...item, status: nextStatus } : item)),
-    );
+    setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: nextStatus } : item)));
     try {
       await orderService.update(order.id, { status: ORDER_STATUS_API[nextStatus] });
     } catch (err) {
-      setOrders((current) =>
-        current.map((item) => (item.id === order.id ? { ...item, status: previous } : item)),
-      );
+      setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: previous } : item)));
       setError(getAxiosErrorMessage(err));
     }
   }

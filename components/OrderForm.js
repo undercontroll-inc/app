@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,13 +16,7 @@ import { componentService } from "../services/ComponentService";
 import { demandService } from "../services/DemandService";
 import { orderService } from "../services/OrderService";
 import { userService } from "../services/UserService";
-import {
-  ORDER_STATUS_API,
-  ORDER_STATUS_LABEL,
-  formatCurrency,
-  formatDateBR,
-  formatUserName,
-} from "../utils/orders";
+import { ORDER_STATUS_API, ORDER_STATUS_LABEL, formatCurrency, formatDateBR, formatUserName } from "../utils/orders";
 import { bottomDockPadding } from "../utils/layout";
 
 const STEP_COUNT = 3;
@@ -109,9 +94,7 @@ function matchesClient(client, query) {
   const phone = (client.phone || "").replace(/\D/g, "");
   const cpf = (client.cpf || "").replace(/\D/g, "");
   return (
-    fullName.includes(text) ||
-    email.includes(text) ||
-    (!!digits && (phone.includes(digits) || cpf.includes(digits)))
+    fullName.includes(text) || email.includes(text) || (!!digits && (phone.includes(digits) || cpf.includes(digits)))
   );
 }
 
@@ -124,7 +107,9 @@ function matchesComponent(component, query) {
 
 function parseNumber(value) {
   if (typeof value === "number") return value;
-  const normalized = String(value ?? "").replace(",", ".").replace(/[^\d.]/g, "");
+  const normalized = String(value ?? "")
+    .replace(",", ".")
+    .replace(/[^\d.]/g, "");
   const amount = Number(normalized);
   return Number.isFinite(amount) ? amount : 0;
 }
@@ -142,11 +127,11 @@ function deviceSummary(device) {
 export default function OrderForm({ edit, orderId }) {
   const insets = useSafeAreaInsets();
   const { setHidden } = useTabBarVisibility();
-  const voice = useVoiceNote({ edit, orderId });
   const [step, setStep] = useState(0);
   const [status, setStatus] = useState("Pendente");
   const [collapsedDevices, setCollapsedDevices] = useState({});
   const [feedback, setFeedback] = useState("");
+  const voice = useVoiceNote({ edit, orderId, onWarning: setFeedback });
   const [loading, setLoading] = useState(!!edit);
   const [saving, setSaving] = useState(false);
   const [clients, setClients] = useState([]);
@@ -173,7 +158,10 @@ export default function OrderForm({ edit, orderId }) {
   );
 
   const laborSubtotal = devices.reduce((total, device) => total + parseNumber(device.labor), 0);
-  const partsSubtotal = parts.reduce((total, part) => total + parseNumber(part.price) * (Number(part.quantity) || 0), 0);
+  const partsSubtotal = parts.reduce(
+    (total, part) => total + parseNumber(part.price) * (Number(part.quantity) || 0),
+    0,
+  );
   const discountValue = parseNumber(discount);
   const orderTotal = laborSubtotal + partsSubtotal - discountValue;
 
@@ -210,10 +198,6 @@ export default function OrderForm({ edit, orderId }) {
     const timeout = setTimeout(() => setFeedback(""), 2500);
     return () => clearTimeout(timeout);
   }, [feedback]);
-
-  useEffect(() => {
-    if (voice.patchWarning) setFeedback(voice.patchWarning);
-  }, [voice.patchWarning]);
 
   useEffect(() => {
     let active = true;
@@ -315,9 +299,7 @@ export default function OrderForm({ edit, orderId }) {
       const existing = current.find((part) => part.componentId === component.id);
       if (existing) {
         return current.map((part) =>
-          part.componentId === component.id
-            ? { ...part, quantity: Number(part.quantity || 1) + 1 }
-            : part,
+          part.componentId === component.id ? { ...part, quantity: Number(part.quantity || 1) + 1 } : part,
         );
       }
       return [
@@ -488,13 +470,19 @@ export default function OrderForm({ edit, orderId }) {
             </Text>
           </View>
           {!edit ? (
-            <Pressable onPress={() => setClientSheetOpen(true)} style={({ pressed }) => [styles.changeClient, pressed && styles.pressed]}>
+            <Pressable
+              onPress={() => setClientSheetOpen(true)}
+              style={({ pressed }) => [styles.changeClient, pressed && styles.pressed]}
+            >
               <Text style={styles.changeClientText}>Trocar</Text>
             </Pressable>
           ) : null}
         </View>
       ) : (
-        <Pressable onPress={() => setClientSheetOpen(true)} style={({ pressed }) => [styles.selectButton, pressed && styles.pressed]}>
+        <Pressable
+          onPress={() => setClientSheetOpen(true)}
+          style={({ pressed }) => [styles.selectButton, pressed && styles.pressed]}
+        >
           <Feather color="#ef7f19" name="search" size={18} />
           <Text style={styles.selectButtonText}>Selecionar cliente</Text>
         </Pressable>
@@ -530,15 +518,27 @@ export default function OrderForm({ edit, orderId }) {
                   placeholder="Tipo do aparelho"
                   value={device.appliance}
                 />
-                <Field label="Marca" onChangeText={(value) => updateDevice(device.key, "brand", value)} value={device.brand} />
-                <Field label="Modelo" onChangeText={(value) => updateDevice(device.key, "model", value)} value={device.model} />
+                <Field
+                  label="Marca"
+                  onChangeText={(value) => updateDevice(device.key, "brand", value)}
+                  value={device.brand}
+                />
+                <Field
+                  label="Modelo"
+                  onChangeText={(value) => updateDevice(device.key, "model", value)}
+                  value={device.model}
+                />
                 <NativeSelect
                   label="Voltagem"
                   onSelect={(value) => updateDevice(device.key, "voltage", value)}
                   options={["127V", "220V"]}
                   value={device.voltage}
                 />
-                <Field label="Nº de Série" onChangeText={(value) => updateDevice(device.key, "serial", value)} value={device.serial} />
+                <Field
+                  label="Nº de Série"
+                  onChangeText={(value) => updateDevice(device.key, "serial", value)}
+                  value={device.serial}
+                />
                 <Field
                   keyboardType="decimal-pad"
                   label="Valor Mão de Obra (R$)"
@@ -634,7 +634,12 @@ export default function OrderForm({ edit, orderId }) {
         <Summary label="Subtotal de peças" value={formatCurrency(partsSubtotal)} />
       </Section>
       <Section title="Garantia e desconto">
-        <NativeSelect label="Garantia" onSelect={setWarranty} options={["30 dias", "60 dias", "90 dias"]} value={warranty} />
+        <NativeSelect
+          label="Garantia"
+          onSelect={setWarranty}
+          options={["30 dias", "60 dias", "90 dias"]}
+          value={warranty}
+        />
         <Field keyboardType="decimal-pad" label="Desconto" onChangeText={setDiscount} value={discount} />
       </Section>
       <Section title="Datas">
@@ -733,7 +738,11 @@ export default function OrderForm({ edit, orderId }) {
         <Pressable
           disabled={saving || loading}
           onPress={onPrimary}
-          style={({ pressed }) => [styles.saveButton, (saving || loading) && styles.saveDisabled, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.saveButton,
+            (saving || loading) && styles.saveDisabled,
+            pressed && styles.pressed,
+          ]}
         >
           <Text style={styles.saveText}>{primaryLabel}</Text>
         </Pressable>
