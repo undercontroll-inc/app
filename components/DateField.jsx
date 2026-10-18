@@ -18,7 +18,7 @@ function parseBRDate(value) {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
-export default function DateField({ label, value, onChange }) {
+export default function DateField({ label, value, onChange, disabled = false }) {
   const insets = useSafeAreaInsets();
   const selected = useMemo(() => parseBRDate(value), [value]);
   const [open, setOpen] = useState(false);
@@ -45,7 +45,7 @@ export default function DateField({ label, value, onChange }) {
   return (
     <View style={styles.field}>
       {!!label && <Text style={styles.fieldLabel}>{label}</Text>}
-      <Pressable onPress={openPicker} style={styles.fieldBox}>
+      <Pressable disabled={disabled} onPress={openPicker} style={[styles.fieldBox, disabled && styles.disabledBox]}>
         <Text style={styles.fieldValue}>{value || "Selecionar data"}</Text>
         <Feather color="#667994" name="calendar" size={18} />
       </Pressable>
@@ -89,6 +89,7 @@ export default function DateField({ label, value, onChange }) {
 const styles = StyleSheet.create({
   field: { marginBottom: 12 },
   fieldLabel: { color: "#667994", fontSize: 14, marginBottom: 8 },
+  disabledBox: { backgroundColor: "#f4f7fb" },
   fieldBox: {
     alignItems: "center",
     borderColor: "#dce4ee",

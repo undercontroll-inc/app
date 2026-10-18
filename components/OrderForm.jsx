@@ -17,6 +17,7 @@ import { useOrder, useOrderDemands, useSaveOrder, useUpdateOrderStatus } from ".
 import { getErrorMessage } from "../providers/api";
 import { ORDER_STATUS_API, ORDER_STATUS_LABEL, formatCurrency, formatDateBR, formatUserName } from "../utils/orders";
 import { bottomDockPadding } from "../utils/layout";
+import { buildCreateOrderPayload, buildUpdateOrderPayload, parseNumber, validDevices } from "../utils/orderPayload";
 
 const STEP_COUNT = 3;
 
@@ -102,15 +103,6 @@ function matchesComponent(component, query) {
   if (!text) return true;
   const haystack = `${component.item || ""} ${component.description || ""} ${component.brand || ""}`.toLowerCase();
   return haystack.includes(text);
-}
-
-function parseNumber(value) {
-  if (typeof value === "number") return value;
-  const normalized = String(value ?? "")
-    .replace(",", ".")
-    .replace(/[^\d.]/g, "");
-  const amount = Number(normalized);
-  return Number.isFinite(amount) ? amount : 0;
 }
 
 function displayContact(value, fallback = "Não informado") {
@@ -343,55 +335,24 @@ export default function OrderForm({ edit, orderId }) {
       setFeedback("Selecione um cliente da lista.");
       return;
     }
-    const validDevices = devices.filter((device) => device.appliance.trim());
-    if (!validDevices.length) {
+    if (!validDevices(devices).length) {
       setFeedback("Adicione pelo menos um aparelho.");
       return;
     }
 
-    const partsPayload = parts
-      .filter((part) => part.componentId && Number(part.quantity) > 0)
-      .map((part) => ({
-        componentId: part.componentId,
-        quantity: Number(part.quantity) || 1,
-      }));
-
-    const payload = edit
-      ? {
-          status: ORDER_STATUS_API[status] || "PENDING",
-          appliances: validDevices.map((device) => ({
-            id: device.id,
-            type: device.appliance,
-            brand: device.brand,
-            model: device.model,
-            volt: device.voltage,
-            series: device.serial,
-            laborValue: parseNumber(device.labor),
-          })),
-          parts: partsPayload,
-          customerDescription: note,
-          technicalDescription: technicalNote,
-        }
-      : {
-          userId: selectedClient.id,
-          appliances: validDevices.map((device) => ({
-            type: device.appliance,
-            brand: device.brand,
-            model: device.model,
-            voltage: device.voltage,
-            serial: device.serial,
-            laborValue: parseNumber(device.labor),
-          })),
-          parts: partsPayload,
-          discount: discountValue,
-          receivedAt,
-          deadline,
-          customerDescription: note,
-          technicalDescription: technicalNote,
-          status: "PENDING",
-          returnGuarantee: Boolean(warranty),
-          fabricGuarantee: false,
-        };
+    const form = {
+      client: selectedClient,
+      status,
+      devices,
+      parts,
+      note,
+      technicalNote,
+      discount,
+      receivedAt,
+      deadline,
+      warranty,
+    };
+    const payload = edit ? buildUpdateOrderPayload(form) : buildCreateOrderPayload(form);
 
     saveOrder.mutate(
       { orderId: edit ? orderId : null, payload },
@@ -599,18 +560,27 @@ export default function OrderForm({ edit, orderId }) {
         ))}
         <Summary label="Subtotal de peças" value={formatCurrency(partsSubtotal)} />
       </Section>
-      <Section title="Garantia e desconto">
-        <NativeSelect
-          label="Garantia"
-          onSelect={setWarranty}
-          options={["30 dias", "60 dias", "90 dias"]}
-          value={warranty}
+      <Section title={edit ? "Desconto" : "Garantia e desconto"}>
+        {!edit ? (
+          <NativeSelect
+            label="Garantia"
+            onSelect={setWarranty}
+            options={["30 dias", "60 dias", "90 dias"]}
+            value={warranty}
+          />
+        ) : null}
+        <Field
+          editable={!edit}
+          keyboardType="decimal-pad"
+          label="Desconto"
+          onChangeText={setDiscount}
+          value={discount}
         />
-        <Field keyboardType="decimal-pad" label="Desconto" onChangeText={setDiscount} value={discount} />
       </Section>
       <Section title="Datas">
-        <DateField label="Data de recebimento" onChange={setReceivedAt} value={receivedAt} />
-        <DateField label="Data de retirada" onChange={setDeadline} value={deadline} />
+        <DateField disabled={edit} label="Data de recebimento" onChange={setReceivedAt} value={receivedAt} />
+        <DateField disabled={edit} label="Data de retirada" onChange={setDeadline} value={deadline} />
+        {edit ? <Text style={styles.hint}>Desconto e datas não podem ser alterados após a criação da OS.</Text> : null}
       </Section>
       <Section highlight title="Resumo">
         <Summary label="Mão de obra" value={formatCurrency(laborSubtotal)} />
@@ -859,6 +829,7 @@ const styles = StyleSheet.create({
   strong: { color: "#092542", fontWeight: "800" },
   total: { color: "#092542", fontSize: 18 },
   red: { color: "#ef4b43" },
+  hint: { color: "#667994", fontSize: 13 },
   emptyParts: { color: "#667994", fontSize: 14, marginBottom: 8 },
   part: {
     backgroundColor: "#f4f7fb",
