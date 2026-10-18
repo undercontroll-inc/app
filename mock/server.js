@@ -301,9 +301,361 @@ server.patch("/orders/:id", (req, res) => {
   return res.json(updated);
 });
 
+const INSIGHTS_STATES = ["READY", "STALE", "AWAITING_DATA", "GENERATING", "FAILED"];
+const GENERATION_MS = Number(process.env.MOCK_INSIGHTS_GENERATION_MS || 10000);
+let insightsState = INSIGHTS_STATES.includes(process.env.MOCK_INSIGHTS_STATE)
+  ? process.env.MOCK_INSIGHTS_STATE
+  : "READY";
+let insightsGeneratedAt = new Date().toISOString();
+let nextJobId = 1;
+const busyConversations = new Set();
+
+const insightsContent = {
+  insights: [
+    {
+      id: "cand-1",
+      type: "TENDENCIA_ALTA",
+      text: "Air fryers subiram 6 posições no ranking de vendas do mês.",
+      category: "MLB-AIRFRYER",
+      categoryName: "Air Fryers",
+      evidence: { view: "ranking", fields: { positionDelta: 6 } },
+      confidence: "ALTA",
+      repairRelation: "Equipamentos populares geram manutenção após a garantia.",
+      suggestedAction: "Reforce o estoque de resistências e ventoinhas.",
+    },
+    {
+      id: "cand-2",
+      type: "ALERTA_PRECO",
+      text: "Micro-ondas tiveram alta de 18% no preço mediano.",
+      category: "MLB-MICRO",
+      categoryName: "Micro-ondas",
+      evidence: { view: "prices", fields: { variation: 0.18 } },
+      confidence: "MEDIA",
+      repairRelation: "Preços altos favorecem o conserto em vez da troca.",
+      suggestedAction: "Divulgue o serviço de conserto de micro-ondas.",
+    },
+    {
+      id: "cand-3",
+      type: "OPORTUNIDADE_REPARO",
+      text: "Lava-louças aparecem entre os mais vendidos e não são atendidos pela oficina.",
+      category: "MLB-LAVALOUCA",
+      categoryName: "Lava-louças",
+      evidence: { view: "coverage", fields: {} },
+      confidence: "BAIXA",
+      repairRelation: null,
+      suggestedAction: null,
+    },
+  ],
+  risingProducts: [
+    {
+      name: "Air Fryer Mondial 4L",
+      brand: "Mondial",
+      model: "AF-30",
+      category: "Air Fryers",
+      rank: 1,
+      positionDelta: 6,
+      score: 0.92,
+      medianPrice: 349.9,
+      validPriceCount: 14,
+      confidence: "ALTA",
+      servedByClient: true,
+    },
+    {
+      name: "Cafeteira Arno Gran Perfetta",
+      brand: "Arno",
+      model: null,
+      category: "Cafeteiras",
+      rank: 2,
+      positionDelta: 3,
+      score: 0.71,
+      medianPrice: null,
+      validPriceCount: 1,
+      confidence: "BAIXA",
+      servedByClient: false,
+    },
+  ],
+  limitations: ["Poucos preços válidos para cafeteiras.", "Ranking considera apenas o Mercado Livre."],
+};
+
+function insightsPayload() {
+  const base = {
+    state: insightsState,
+    requestedBucketKey: "2026-10",
+    requestedMonth: "outubro de 2026",
+    snapshotPublishedAt: null,
+    availableBucketKey: null,
+    availableMonth: null,
+    comparisonBucketKey: null,
+    generatedAt: null,
+    failureReason: null,
+    matchCoverage: { exact: 0, brandCategory: 0, category: 0, none: 0 },
+    insights: [],
+    risingProducts: [],
+    limitations: [],
+  };
+  if (insightsState === "AWAITING_DATA") return base;
+  const available = insightsState === "READY" ? "2026-10" : "2026-09";
+  return {
+    ...base,
+    snapshotPublishedAt: "2026-10-01T03:00:00Z",
+    availableBucketKey: available,
+    availableMonth: available === "2026-10" ? "outubro de 2026" : "setembro de 2026",
+    comparisonBucketKey: "2026-08",
+    generatedAt: insightsGeneratedAt,
+    failureReason: insightsState === "FAILED" ? "TIMEOUT" : null,
+    matchCoverage: { exact: 12, brandCategory: 5, category: 3, none: 2 },
+    ...insightsContent,
+  };
+}
+
+server.get("/insights", (_req, res) => res.json(insightsPayload()));
+
+server.post("/market/insights/jobs", (_req, res) => {
+  if (insightsState === "AWAITING_DATA") {
+    return res.status(409).json({ status: 409, code: "AWAITING_DATA", message: "No snapshot published yet" });
+  }
+  insightsState = "GENERATING";
+  const job = {
+    jobId: nextJobId++,
+    snapshotId: 1,
+    bucketKey: "2026-10",
+    status: "PENDING",
+    attemptCount: 0,
+    nextRunAt: new Date().toISOString(),
+    lastError: null,
+  };
+  setTimeout(() => {
+    insightsState = "READY";
+    insightsGeneratedAt = new Date().toISOString();
+  }, GENERATION_MS);
+  return res.status(202).json(job);
+});
+
+function sendEvent(res, name, payload) {
+  res.write(`event: ${name}\ndata: ${JSON.stringify(payload)}\n\n`);
+}
+
+function mockReply(content) {
+  const text = String(content || "");
+  if (/erro/i.test(text)) return { kind: "error" };
+  if (/parcial/i.test(text)) return { kind: "partial", answer: "Esta resposta foi cortada antes do fim" };
+  return {
+    kind: "done",
+    answer: `Olá! Sou a **Ana** (modo mock). Você perguntou: _${text}_.\n\nHoje há ${
+      (db().get("orders").value() ?? []).length
+    } ordens de serviço cadastradas.`,
+  };
+}
+
+const CONVERSATION_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+server.post("/chats/messages/stream", (req, res) => {
+  const content = String(req.body?.content || "").trim();
+  const conversationId = req.body?.conversationId || "mock-conversation";
+  if (!content || !CONVERSATION_ID.test(conversationId)) {
+    return res.status(400).json({ status: 400, message: "Conteúdo ou conversationId inválido" });
+  }
+  if (busyConversations.has(conversationId)) {
+    return res.status(409).json({ status: 409, code: "CHAT_CONVERSATION_BUSY", message: "Conversation busy" });
+  }
+
+  busyConversations.add(conversationId);
+  res.status(200).set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders?.();
+
+  const reply = mockReply(content);
+  const words = (reply.answer || "").split(/(\s+)/).filter(Boolean);
+  const timers = [];
+  let closed = false;
+  const finish = () => {
+    if (closed) return;
+    closed = true;
+    timers.forEach(clearTimeout);
+    busyConversations.delete(conversationId);
+    res.end();
+  };
+  res.on("close", finish);
+
+  sendEvent(res, "start", { conversationId });
+  sendEvent(res, "status", { phase: "generating" });
+  res.write(": keepalive\n\n");
+
+  words.forEach((word, index) => {
+    timers.push(setTimeout(() => !closed && sendEvent(res, "delta", { content: word }), 40 * (index + 1)));
+  });
+
+  timers.push(
+    setTimeout(
+      () => {
+        if (closed) return;
+        if (reply.kind === "error") {
+          sendEvent(res, "error", {
+            state: "failed",
+            code: "CHAT_TIMEOUT",
+            message: "A Ana demorou demais",
+            retryable: true,
+          });
+        } else if (reply.kind === "partial") {
+          sendEvent(res, "partial", { state: "partial", content: reply.answer, reason: "max_tokens", retryable: true });
+        } else {
+          sendEvent(res, "done", { state: "completed", content: reply.answer });
+        }
+        finish();
+      },
+      40 * (words.length + 2),
+    ),
+  );
+  return undefined;
+});
+
+server.post("/chats/messages", (req, res) => {
+  const conversationId = req.body?.conversationId || "mock-conversation";
+  const reply = mockReply(req.body?.content);
+  if (reply.kind === "error") {
+    return res.status(503).json({ status: 503, code: "CHAT_UNAVAILABLE", message: "Ana indisponível" });
+  }
+  return res.json({
+    conversationId,
+    content: reply.answer,
+    state: reply.kind === "partial" ? "partial" : "completed",
+    reason: reply.kind === "partial" ? "max_tokens" : null,
+  });
+});
+
+const suggestions = [
+  "Quais ordens estão pendentes?",
+  "Qual peça mais usei este mês?",
+  "Quanto faturei nos últimos 30 dias?",
+  "Quais clientes são recorrentes?",
+];
+
+server.get("/chats/suggestions", (_req, res) => res.json({ suggestions: suggestions.slice(0, 3) }));
+server.post("/chats/suggestions", (_req, res) => {
+  const shuffled = [...suggestions].sort(() => Math.random() - 0.5);
+  res.json({ suggestions: shuffled.slice(0, 3) });
+});
+
+server.post("/transcriptions", (req, res) => {
+  const contentType = String(req.headers["content-type"] || "");
+  if (!contentType.startsWith("multipart/form-data")) {
+    return res.status(400).json({ status: 400, code: "TRANSCRIPTION_INVALID", message: "Audio file is required" });
+  }
+  let size = 0;
+  let head = "";
+  req.on("data", (chunk) => {
+    size += chunk.length;
+    if (head.length < 2048) head += chunk.toString("latin1");
+  });
+  req.on("end", () => {
+    const declared = /name="audio"[\s\S]*?content-type:\s*([^\r\n]+)/i.exec(head)?.[1]?.trim().toLowerCase();
+    if (!/name="audio"/.test(head) || size < 256) {
+      return res.status(400).json({ status: 400, code: "TRANSCRIPTION_INVALID", message: "Audio file is empty" });
+    }
+    if (declared && !["audio/mp4", "audio/m4a", "audio/x-m4a", "audio/aac", "video/mp4"].includes(declared)) {
+      return res.status(400).json({
+        status: 400,
+        code: "TRANSCRIPTION_INVALID",
+        message: `Declared type ${declared} does not match the audio content (m4a)`,
+      });
+    }
+    return res.json({ text: "Cliente relata que o aparelho parou de funcionar após uma queda de energia." });
+  });
+  return undefined;
+});
+
+function periodStart(period) {
+  const days = { SEVEN_DAYS: 7, THIRTY_DAYS: 30, NINETY_DAYS: 90, YEAR: 365 }[period];
+  if (!days) return null;
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function ordersInPeriod(period) {
+  const start = periodStart(period);
+  return (db().get("orders").value() ?? []).filter((order) => !start || String(order.receivedAt || "") >= start);
+}
+
+server.get("/dashboard/metrics", (req, res) => {
+  const value = ordersInPeriod(req.query.period).reduce((sum, order) => sum + (Number(order.totalValue) || 0), 0);
+  res.json({ value });
+});
+
+server.get("/dashboard/ongoing-orders", (req, res) => {
+  const value = ordersInPeriod(req.query.period).filter((order) =>
+    ["PENDING", "IN_ANALYSIS"].includes(order.status),
+  ).length;
+  res.json({ value });
+});
+
+server.get("/dashboard/average-order-price", (req, res) => {
+  const orders = ordersInPeriod(req.query.period);
+  const total = orders.reduce((sum, order) => sum + (Number(order.totalValue) || 0), 0);
+  res.json({ value: orders.length ? total / orders.length : 0 });
+});
+
+server.get("/dashboard/average-repair-time", (_req, res) => res.json({ value: 52.5 }));
+
+server.get("/dashboard/charts/top-appliances", (req, res) => {
+  const counts = new Map();
+  ordersInPeriod(req.query.period).forEach((order) => {
+    (order.appliances ?? []).forEach((item) => {
+      const key = `${item.type}|${item.brand}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+  });
+  const appliances = [...counts.entries()]
+    .map(([key, count]) => {
+      const [type, brand] = key.split("|");
+      return { type, brand, count };
+    })
+    .sort((a, b) => b.count - a.count);
+  res.json({ appliances });
+});
+
+server.post("/components", (req, res) => {
+  const body = req.body || {};
+  const component = {
+    id: nextId("components"),
+    item: body.item || "",
+    description: body.description || "",
+    brand: body.brand || "",
+    price: Number(body.price) || 0,
+    quantity: Number(body.quantity) || 0,
+    supplier: body.supplier || "",
+    category: body.category || "",
+  };
+  db().get("components").push(component).write();
+  return res.status(201).json(component);
+});
+
+server.put("/components/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const current = findComponent(id);
+  if (!current) return res.status(404).json({ status: 404, message: "Componente não encontrado" });
+  const body = req.body || {};
+  const updated = {
+    ...current,
+    item: body.item ?? current.item,
+    description: body.description ?? current.description,
+    brand: body.brand ?? current.brand,
+    price: body.price != null ? Number(body.price) : current.price,
+    supplier: body.supplier ?? current.supplier,
+    category: body.category ?? current.category,
+  };
+  db().get("components").find({ id }).assign(updated).write();
+  return res.json(updated);
+});
+
 server.use(router);
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`JSON Server em http://localhost:${PORT}/v1/api`);
   console.log("Login mock: admin@pelluci.com / 123456");
+  console.log(`Insights mock: estado ${insightsState} (MOCK_INSIGHTS_STATE=${INSIGHTS_STATES.join("|")})`);
 });
