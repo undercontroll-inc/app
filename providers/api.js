@@ -1,18 +1,20 @@
 import axios from "axios";
+import Constants from "expo-constants";
 import { fetch as expoFetch } from "expo/fetch";
 import { Platform } from "react-native";
 import { clearAuth, getRefreshToken, getToken, saveTokens } from "../utils/auth";
 import { ApiError, UNAUTHORIZED_MESSAGE } from "./apiError";
+import { resolveApiBaseURL } from "./apiHost";
 
 export { ApiError, getErrorMessage, isAbortError, normalizeError, parseApiError } from "./apiError";
 
 export function getApiBaseURL() {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-  const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
-  const port = process.env.EXPO_PUBLIC_API_PORT || "8080";
-  return `http://${host}:${port}/v1/api`;
+  return resolveApiBaseURL({
+    apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    apiPort: process.env.EXPO_PUBLIC_API_PORT,
+    hostUri: Constants.expoConfig?.hostUri ?? Constants.expoGoConfig?.debuggerHost,
+    platform: Platform.OS,
+  });
 }
 
 const baseURL = getApiBaseURL();
