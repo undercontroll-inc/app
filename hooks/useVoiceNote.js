@@ -8,7 +8,7 @@ import {
   useAudioRecorderState,
 } from "expo-audio";
 import { getErrorMessage } from "../providers/api";
-import { deleteRecordingFile, transcriptionService } from "../services/TranscriptionService";
+import { deleteRecordingFile, transcriptionErrorMessage, transcriptionService } from "../services/TranscriptionService";
 
 export const MAX_RECORDING_SECONDS = 60;
 
@@ -19,19 +19,6 @@ const RECORDING_OPTIONS = {
 
 function afterPaint() {
   return new Promise((resolve) => setTimeout(resolve, 50));
-}
-
-function transcriptionErrorMessage(error) {
-  const api = error?.message || getErrorMessage(error);
-  if (/demorou/i.test(api)) return api;
-  const code = error?.code;
-  if (code === "TRANSCRIPTION_UNAVAILABLE" || code === "TRANSCRIPTION_INVALID") {
-    return "Não foi possível transcrever. Digite ou tente de novo.";
-  }
-  if (/unavailable|unsupported|empty|8MB|transcri/i.test(api)) {
-    return "Não foi possível transcrever. Digite ou tente de novo.";
-  }
-  return api || "Não foi possível transcrever. Digite ou tente de novo.";
 }
 
 function showPermissionAlert() {
