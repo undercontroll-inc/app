@@ -1,20 +1,8 @@
-import { fetch } from "expo/fetch";
 import { File } from "expo-file-system";
-import { getApiBaseURL } from "../providers/api";
-import { getToken } from "../utils/auth";
+import { ApiError, authorizedFetch, isAbortError, parseApiError } from "../providers/api";
 
 const TRANSCRIBE_TIMEOUT_MS = 60000;
 const MIN_AUDIO_BYTES = 256;
-
-function parseApiErrorBody(text) {
-  if (!text) return "";
-  try {
-    const data = JSON.parse(text);
-    return data.message || data.error || data.detail || data.code || text;
-  } catch {
-    return text;
-  }
-}
 
 function unwrapText(payload) {
   if (payload == null) return "";
@@ -59,25 +47,17 @@ class TranscriptionService {
     const form = new FormData();
     form.append("audio", file, "note.m4a");
 
-    const token = getToken();
-    const headers = {
-      Accept: "application/json",
-    };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
     const timeout = withTimeout(TRANSCRIBE_TIMEOUT_MS);
     try {
-      const response = await fetch(`${getApiBaseURL()}/transcriptions`, {
+      const response = await authorizedFetch("/transcriptions", {
         method: "POST",
-        headers,
+        headers: { Accept: "application/json" },
         body: form,
         signal: timeout.signal,
       });
       const payloadText = await response.text();
       if (!response.ok) {
-        throw new Error(parseApiErrorBody(payloadText) || `Erro ${response.status}`);
+        throw new ApiError(parseApiError(response.status, payloadText));
       }
       if (!payloadText) return "";
       try {
@@ -86,7 +66,7 @@ class TranscriptionService {
         return unwrapText(payloadText);
       }
     } catch (error) {
-      if (error?.name === "AbortError" || /aborted/i.test(String(error?.message || ""))) {
+      if (isAbortError(error)) {
         throw new Error("A transcrição demorou demais. Tente um áudio mais curto.");
       }
       throw error;

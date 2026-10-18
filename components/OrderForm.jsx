@@ -11,7 +11,7 @@ import NativeSelect from "./NativeSelect";
 import ScreenHeader from "./ScreenHeader";
 import SearchSheet from "./SearchSheet";
 import VoiceNoteField from "./VoiceNoteField";
-import { getAxiosErrorMessage } from "../providers/api";
+import { getErrorMessage } from "../providers/api";
 import { componentService } from "../services/ComponentService";
 import { demandService } from "../services/DemandService";
 import { orderService } from "../services/OrderService";
@@ -209,7 +209,7 @@ export default function OrderForm({ edit, orderId }) {
         setClients(customers);
         setComponents(stock);
       } catch (error) {
-        if (active) setFeedback(getAxiosErrorMessage(error));
+        if (active) setFeedback(getErrorMessage(error));
       }
     }
 
@@ -268,7 +268,7 @@ export default function OrderForm({ edit, orderId }) {
           })),
         );
       } catch (error) {
-        if (active) setFeedback(getAxiosErrorMessage(error));
+        if (active) setFeedback(getErrorMessage(error));
       } finally {
         if (active) setLoading(false);
       }
@@ -433,7 +433,7 @@ export default function OrderForm({ edit, orderId }) {
       }
       router.replace("/orders");
     } catch (error) {
-      setFeedback(getAxiosErrorMessage(error));
+      setFeedback(getErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -448,7 +448,7 @@ export default function OrderForm({ edit, orderId }) {
       await orderService.update(orderId, { status: ORDER_STATUS_API[nextStatus] });
     } catch (error) {
       setStatus(previous);
-      setFeedback(getAxiosErrorMessage(error));
+      setFeedback(getErrorMessage(error));
     }
   }
 

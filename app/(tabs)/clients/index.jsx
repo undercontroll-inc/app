@@ -17,7 +17,7 @@ import AppShell from "../../../components/AppShell";
 import ClientCard from "../../../components/ClientCard";
 import SearchField from "../../../components/SearchField";
 import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
-import { getAxiosErrorMessage } from "../../../providers/api";
+import { getErrorMessage } from "../../../providers/api";
 import { userService } from "../../../services/UserService";
 import { telUrl, whatsappUrl } from "../../../utils/contact";
 import { formatUserName } from "../../../utils/orders";
@@ -36,7 +36,7 @@ export default function ClientsScreen() {
       setError("");
       setClients(await userService.getCustomers());
     } catch (err) {
-      setError(getAxiosErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export default function ClientsScreen() {
       setError("");
       setClients(await userService.getCustomers());
     } catch (err) {
-      setError(getAxiosErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setRefreshing(false);
     }
@@ -110,7 +110,7 @@ export default function ClientsScreen() {
       await userService.remove(client.id);
       setClients((current) => current.filter((item) => item.id !== client.id));
     } catch (err) {
-      setError(getAxiosErrorMessage(err));
+      setError(getErrorMessage(err));
     }
   }
 

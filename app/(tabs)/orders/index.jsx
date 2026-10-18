@@ -7,7 +7,7 @@ import AppHeader from "../../../components/AppHeader";
 import OrderCard from "../../../components/OrderCard";
 import SearchField from "../../../components/SearchField";
 import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
-import { getAxiosErrorMessage } from "../../../providers/api";
+import { getErrorMessage } from "../../../providers/api";
 import { orderService } from "../../../services/OrderService";
 import { ORDER_STATUS_API, toOrderCard } from "../../../utils/orders";
 
@@ -28,7 +28,7 @@ export default function OrdersScreen() {
       const response = await orderService.list({ page: 0, size: 50 });
       setOrders((response.data ?? []).map(toOrderCard));
     } catch (err) {
-      setError(getAxiosErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -95,7 +95,7 @@ export default function OrdersScreen() {
       await orderService.update(order.id, { status: ORDER_STATUS_API[nextStatus] });
     } catch (err) {
       setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: previous } : item)));
-      setError(getAxiosErrorMessage(err));
+      setError(getErrorMessage(err));
     }
   }
 
@@ -104,7 +104,7 @@ export default function OrdersScreen() {
       await orderService.remove(order.id);
       setOrders((current) => current.filter((item) => item.id !== order.id));
     } catch (err) {
-      setError(getAxiosErrorMessage(err));
+      setError(getErrorMessage(err));
     }
   }
 

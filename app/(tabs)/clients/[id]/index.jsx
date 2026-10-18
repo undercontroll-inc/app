@@ -5,7 +5,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import AppShell from "../../../../components/AppShell";
 import ScreenHeader from "../../../../components/ScreenHeader";
 import { useTabBarVisibility } from "../../../../contexts/TabBarVisibilityContext";
-import { getAxiosErrorMessage } from "../../../../providers/api";
+import { getErrorMessage } from "../../../../providers/api";
 import { orderService } from "../../../../services/OrderService";
 import { userService } from "../../../../services/UserService";
 import { telUrl, whatsappUrl } from "../../../../utils/contact";
@@ -46,7 +46,7 @@ export default function ClientDetailScreen() {
       const data = await userService.getById(id);
       setClient(data);
     } catch (err) {
-      setError(getAxiosErrorMessage(err));
+      setError(getErrorMessage(err));
       setLoading(false);
       setHistoryLoading(false);
       return;
@@ -61,7 +61,7 @@ export default function ClientDetailScreen() {
         })),
       );
     } catch (err) {
-      setHistoryError(getAxiosErrorMessage(err));
+      setHistoryError(getErrorMessage(err));
     } finally {
       setHistoryLoading(false);
     }

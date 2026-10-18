@@ -19,15 +19,11 @@ import ChatMessage from "../../components/chat/ChatMessage";
 import ChatScrollView from "../../components/chat/ChatScrollView";
 import ChatSuggestions from "../../components/chat/ChatSuggestions";
 import { useTabBarVisibility } from "../../contexts/TabBarVisibilityContext";
-import { getAxiosErrorMessage } from "../../providers/api";
+import { getErrorMessage, isAbortError } from "../../providers/api";
 import { chatService } from "../../services/ChatService";
 import { createMessage, unwrapSuggestions } from "../../utils/chat";
 
 const MIN_INPUT_HEIGHT = 52;
-
-function isAbortError(error) {
-  return error?.name === "AbortError" || /aborted|AbortError/i.test(String(error?.message || ""));
-}
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
@@ -63,7 +59,7 @@ export default function ChatScreen() {
       const payload = await chatService.getSuggestions();
       setSuggestions(unwrapSuggestions(payload));
     } catch (error) {
-      setSuggestionsError(getAxiosErrorMessage(error));
+      setSuggestionsError(getErrorMessage(error));
     } finally {
       setSuggestionsLoading(false);
     }
@@ -97,7 +93,7 @@ export default function ChatScreen() {
       const payload = await chatService.refreshSuggestions();
       setSuggestions(unwrapSuggestions(payload));
     } catch (error) {
-      setSuggestionsError(getAxiosErrorMessage(error));
+      setSuggestionsError(getErrorMessage(error));
     } finally {
       setRefreshing(false);
     }
@@ -193,7 +189,7 @@ export default function ChatScreen() {
         }
         updateAssistant((message) => ({
           ...message,
-          content: error?.message || getAxiosErrorMessage(error),
+          content: error?.message || getErrorMessage(error),
           status: "error",
         }));
       }

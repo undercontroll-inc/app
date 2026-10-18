@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarVisibility } from "../contexts/TabBarVisibilityContext";
 import AppShell from "./AppShell";
 import ScreenHeader from "./ScreenHeader";
-import { getAxiosErrorMessage } from "../providers/api";
+import { getErrorMessage } from "../providers/api";
 import { userService } from "../services/UserService";
 import { bottomDockPadding } from "../utils/layout";
 
@@ -56,7 +56,7 @@ export default function ClientForm({ edit = false, clientId }) {
         if (!active) return;
         setForm({ ...emptyForm, ...client, number: "" });
       } catch (err) {
-        if (active) setFeedback(getAxiosErrorMessage(err));
+        if (active) setFeedback(getErrorMessage(err));
       } finally {
         if (active) setLoading(false);
       }
@@ -102,7 +102,7 @@ export default function ClientForm({ edit = false, clientId }) {
         router.replace("/clients");
       }
     } catch (err) {
-      setFeedback(getAxiosErrorMessage(err));
+      setFeedback(getErrorMessage(err));
     } finally {
       setSaving(false);
     }

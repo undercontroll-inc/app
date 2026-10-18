@@ -1,4 +1,4 @@
-import { apiClient, getAxiosErrorMessage } from "../providers/api";
+import { apiClient, getErrorMessage } from "../providers/api";
 
 class AuthService {
   async login(email, password) {
@@ -10,7 +10,7 @@ class AuthService {
       });
       return { success: true, data: response.data };
     } catch (error) {
-      return { success: false, error: getAxiosErrorMessage(error) };
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 

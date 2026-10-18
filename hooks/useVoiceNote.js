@@ -7,7 +7,7 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
-import { getAxiosErrorMessage } from "../providers/api";
+import { getErrorMessage } from "../providers/api";
 import { orderService } from "../services/OrderService";
 import { deleteRecordingFile, transcriptionService } from "../services/TranscriptionService";
 
@@ -31,9 +31,9 @@ function afterPaint() {
 }
 
 function transcriptionErrorMessage(error) {
-  const api = error?.message || getAxiosErrorMessage(error);
+  const api = error?.message || getErrorMessage(error);
   if (/demorou/i.test(api)) return api;
-  const code = error?.response?.data?.code;
+  const code = error?.code;
   if (code === "TRANSCRIPTION_UNAVAILABLE" || code === "TRANSCRIPTION_INVALID") {
     return "Não foi possível transcrever. Digite ou tente de novo.";
   }
@@ -233,7 +233,7 @@ export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) 
           await orderService.update(orderId, { [pending.patchKey]: nextValue });
         } catch (error) {
           onWarning?.(
-            getAxiosErrorMessage(error) || "Texto aplicado, mas não foi possível salvar. Use o botão de salvar da OS.",
+            getErrorMessage(error) || "Texto aplicado, mas não foi possível salvar. Use o botão de salvar da OS.",
           );
         }
       }

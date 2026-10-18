@@ -117,13 +117,3 @@ export function createSseParser(onEvent) {
     },
   };
 }
-
-export function parseApiErrorBody(text) {
-  if (!text) return "";
-  try {
-    const data = JSON.parse(text);
-    return data.message || data.error || data.detail || data.code || text;
-  } catch {
-    return text;
-  }
-}
