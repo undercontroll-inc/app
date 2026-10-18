@@ -1,10 +1,16 @@
+import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { getStatusColors } from "../utils/orders";
 
-export default function OrderCard({ order, onPress, onLongPress }) {
+function OrderCard({ order, onPress, onLongPress }) {
   const colors = getStatusColors(order.status);
   return (
-    <Pressable delayLongPress={350} onLongPress={onLongPress} onPress={onPress} style={styles.card}>
+    <Pressable
+      delayLongPress={350}
+      onLongPress={() => onLongPress?.(order)}
+      onPress={() => onPress?.(order)}
+      style={styles.card}
+    >
       <View style={styles.row}>
         <Text style={styles.number}>#{order.id}</Text>
         <Text style={[styles.badge, { backgroundColor: colors.background, color: colors.color }]}>{order.status}</Text>
@@ -15,6 +21,8 @@ export default function OrderCard({ order, onPress, onLongPress }) {
     </Pressable>
   );
 }
+
+export default memo(OrderCard);
 
 const styles = StyleSheet.create({
   card: {

@@ -1,9 +1,38 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { demandService } from "../../services/DemandService";
 import { orderService } from "../../services/OrderService";
 import { queryKeys } from "./keys";
 
 const PAGE_SIZE = 50;
+export const ORDERS_PAGE_SIZE = 20;
+
+export function getNextOrdersPage(lastPage) {
+  const next = (lastPage?.page ?? 0) + 1;
+  return next < (lastPage?.totalPages ?? 0) ? next : undefined;
+}
+
+export function updateOrderInCache(current, orderId, changes) {
+  const patch = (list) =>
+    list.map((order) => (String(order.id) === String(orderId) ? { ...order, ...changes } : order));
+  if (current?.pages) {
+    return {
+      ...current,
+      pages: current.pages.map((page) => (page?.data ? { ...page, data: patch(page.data) } : page)),
+    };
+  }
+  if (Array.isArray(current?.data)) return { ...current, data: patch(current.data) };
+  return current;
+}
+
+export function useInfiniteOrders() {
+  return useInfiniteQuery({
+    queryKey: queryKeys.orders.infinite(),
+    queryFn: ({ pageParam, signal }) => orderService.list({ page: pageParam, size: ORDERS_PAGE_SIZE, signal }),
+    initialPageParam: 0,
+    getNextPageParam: getNextOrdersPage,
+    select: (data) => data.pages.flatMap((page) => page?.data ?? []),
+  });
+}
 
 export function useOrders({ userId, enabled = true } = {}) {
   const filters = userId != null ? { userId: String(userId) } : {};
@@ -46,14 +75,9 @@ export function useUpdateOrderStatus() {
     mutationFn: ({ orderId, status }) => orderService.update(orderId, { status }),
     onMutate: async ({ orderId, status }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.orders.all });
-      const snapshots = queryClient.getQueriesData({ queryKey: ["orders", "list"] });
-      queryClient.setQueriesData({ queryKey: ["orders", "list"] }, (current) =>
-        current?.data
-          ? {
-              ...current,
-              data: current.data.map((order) => (String(order.id) === String(orderId) ? { ...order, status } : order)),
-            }
-          : current,
+      const snapshots = queryClient.getQueriesData({ queryKey: queryKeys.orders.all });
+      queryClient.setQueriesData({ queryKey: queryKeys.orders.all }, (current) =>
+        updateOrderInCache(current, orderId, { status }),
       );
       return { snapshots };
     },

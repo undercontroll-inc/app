@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { memo, useCallback, useMemo } from "react";
+import { ActivityIndicator, FlatList, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import AppShell from "../../../../components/AppShell";
@@ -43,6 +43,9 @@ export default function ClientDetailScreen() {
     [ordersQuery.data],
   );
 
+  const openOrder = useCallback((order) => router.push(`/orders/${order.id}`), []);
+  const renderOrder = useCallback(({ item }) => <ClientOrderRow onPress={openOrder} order={item} />, [openOrder]);
+
   const callUrl = telUrl(client?.phone);
   const chatUrl = client?.hasWhatsApp ? whatsappUrl(client?.phone) : null;
 
@@ -71,84 +74,92 @@ export default function ClientDetailScreen() {
           </Pressable>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={styles.phone}>{client.phone || "Telefone não informado"}</Text>
-          <View style={styles.actions}>
-            {callUrl ? (
-              <Pressable
-                onPress={() => openContact(callUrl)}
-                style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-              >
-                <Feather color="#ef7f19" name="phone" size={16} />
-                <Text style={styles.actionText}>Ligar</Text>
-              </Pressable>
-            ) : null}
-            {chatUrl ? (
-              <Pressable
-                onPress={() => openContact(chatUrl)}
-                style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-              >
-                <Feather color="#ef7f19" name="message-circle" size={16} />
-                <Text style={styles.actionText}>WhatsApp</Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={() => router.push(`/clients/${id}/edit`)}
-              style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-            >
-              <Feather color="#ef7f19" name="edit-2" size={16} />
-              <Text style={styles.actionText}>Editar</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.section}>
-            <Detail label="E-mail" value={client.email} />
-            <Detail label="CPF" value={client.cpf} />
-            <Detail label="CEP" value={client.CEP} />
-            <Detail label="Endereço" value={client.address} />
-          </View>
-
-          <Text style={styles.historyTitle}>Histórico recente</Text>
-          {historyLoading ? (
-            <View style={styles.historyState}>
-              <ActivityIndicator color="#ef7f19" size="small" />
-              <Text style={styles.muted}>Carregando ordens...</Text>
-            </View>
-          ) : historyError ? (
-            <Text style={styles.error}>{historyError}</Text>
-          ) : orders.length === 0 ? (
-            <Text style={styles.muted}>Nenhuma ordem encontrada.</Text>
-          ) : (
-            orders.map((order) => {
-              const status = String(order.status || "Sem status");
-              return (
+        <FlatList
+          ListEmptyComponent={
+            historyLoading ? (
+              <View style={styles.historyState}>
+                <ActivityIndicator color="#ef7f19" size="small" />
+                <Text style={styles.muted}>Carregando ordens...</Text>
+              </View>
+            ) : historyError ? (
+              <Text style={styles.error}>{historyError}</Text>
+            ) : (
+              <Text style={styles.muted}>Nenhuma ordem encontrada.</Text>
+            )
+          }
+          ListHeaderComponent={
+            <>
+              <Text style={styles.phone}>{client.phone || "Telefone não informado"}</Text>
+              <View style={styles.actions}>
+                {callUrl ? (
+                  <Pressable
+                    onPress={() => openContact(callUrl)}
+                    style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+                  >
+                    <Feather color="#ef7f19" name="phone" size={16} />
+                    <Text style={styles.actionText}>Ligar</Text>
+                  </Pressable>
+                ) : null}
+                {chatUrl ? (
+                  <Pressable
+                    onPress={() => openContact(chatUrl)}
+                    style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+                  >
+                    <Feather color="#ef7f19" name="message-circle" size={16} />
+                    <Text style={styles.actionText}>WhatsApp</Text>
+                  </Pressable>
+                ) : null}
                 <Pressable
-                  key={order.id}
-                  onPress={() => router.push(`/orders/${order.id}`)}
-                  style={({ pressed }) => [styles.orderCard, pressed && styles.pressed]}
+                  onPress={() => router.push(`/clients/${id}/edit`)}
+                  style={({ pressed }) => [styles.action, pressed && styles.pressed]}
                 >
-                  <View style={styles.orderHeader}>
-                    <Text style={styles.orderTitle}>OS #{order.id}</Text>
-                    <Text style={styles.orderDate}>{formatDateBR(order.receivedAt) || "Data não informada"}</Text>
-                  </View>
-                  <View style={styles.orderFooter}>
-                    <Text numberOfLines={1} style={styles.orderMeta}>
-                      {formatAppliance(order.appliances?.[0])}
-                    </Text>
-                    <View style={styles.statusWrap}>
-                      <View style={[styles.statusDot, { backgroundColor: getStatusColors(status).color }]} />
-                      <Text style={[styles.status, { color: getStatusColors(status).color }]}>{status}</Text>
-                    </View>
-                  </View>
+                  <Feather color="#ef7f19" name="edit-2" size={16} />
+                  <Text style={styles.actionText}>Editar</Text>
                 </Pressable>
-              );
-            })
-          )}
-        </ScrollView>
+              </View>
+
+              <View style={styles.section}>
+                <Detail label="E-mail" value={client.email} />
+                <Detail label="CPF" value={client.cpf} />
+                <Detail label="CEP" value={client.CEP} />
+                <Detail label="Endereço" value={client.address} />
+              </View>
+
+              <Text style={styles.historyTitle}>Histórico recente</Text>
+            </>
+          }
+          contentContainerStyle={styles.content}
+          data={historyLoading || historyError ? [] : orders}
+          keyExtractor={(order) => String(order.id)}
+          renderItem={renderOrder}
+          showsVerticalScrollIndicator={false}
+        />
       )}
     </AppShell>
   );
 }
+
+const ClientOrderRow = memo(function ClientOrderRow({ order, onPress }) {
+  const status = String(order.status || "Sem status");
+  const { color } = getStatusColors(status);
+  return (
+    <Pressable onPress={() => onPress(order)} style={({ pressed }) => [styles.orderCard, pressed && styles.pressed]}>
+      <View style={styles.orderHeader}>
+        <Text style={styles.orderTitle}>OS #{order.id}</Text>
+        <Text style={styles.orderDate}>{formatDateBR(order.receivedAt) || "Data não informada"}</Text>
+      </View>
+      <View style={styles.orderFooter}>
+        <Text numberOfLines={1} style={styles.orderMeta}>
+          {formatAppliance(order.appliances?.[0])}
+        </Text>
+        <View style={styles.statusWrap}>
+          <View style={[styles.statusDot, { backgroundColor: color }]} />
+          <Text style={[styles.status, { color }]}>{status}</Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+});
 
 function Detail({ label, value }) {
   return (

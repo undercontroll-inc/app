@@ -1,4 +1,6 @@
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { memo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { formatUserName } from "../utils/orders";
 
 function initials(client) {
@@ -11,17 +13,24 @@ function initials(client) {
     .toUpperCase();
 }
 
-export default function ClientCard({ client, onPress, onLongPress }) {
+function ClientCard({ client, onPress, onLongPress }) {
   return (
     <Pressable
       accessibilityLabel={formatUserName(client)}
       delayLongPress={350}
-      onLongPress={onLongPress}
-      onPress={onPress}
+      onLongPress={() => onLongPress?.(client)}
+      onPress={() => onPress?.(client)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       {client.avatarUrl ? (
-        <Image source={{ uri: client.avatarUrl }} style={styles.avatar} />
+        <Image
+          cachePolicy="memory-disk"
+          contentFit="cover"
+          recyclingKey={String(client.id)}
+          source={{ uri: client.avatarUrl }}
+          style={styles.avatar}
+          transition={150}
+        />
       ) : (
         <View style={styles.avatarFallback}>
           <Text style={styles.avatarText}>{initials(client)}</Text>
@@ -38,6 +47,8 @@ export default function ClientCard({ client, onPress, onLongPress }) {
     </Pressable>
   );
 }
+
+export default memo(ClientCard);
 
 const styles = StyleSheet.create({
   card: {

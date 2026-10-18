@@ -2,6 +2,7 @@ export const queryKeys = {
   orders: {
     all: ["orders"],
     list: (filters = {}) => ["orders", "list", filters],
+    infinite: () => ["orders", "infinite"],
     detail: (orderId) => ["orders", "detail", String(orderId)],
     demands: (orderId) => ["orders", "demands", String(orderId)],
   },

@@ -1,7 +1,17 @@
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { memo } from "react";
+import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SearchField from "./SearchField";
 import { bottomDockPadding } from "../utils/layout";
+
+const SearchResultRow = memo(function SearchResultRow({ item, onSelect }) {
+  return (
+    <Pressable onPress={() => onSelect(item)} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+      <Text style={styles.rowTitle}>{item.title}</Text>
+      {item.meta ? <Text style={styles.rowMeta}>{item.meta}</Text> : null}
+    </Pressable>
+  );
+});
 
 export default function SearchSheet({
   visible,
@@ -31,22 +41,14 @@ export default function SearchSheet({
           <View style={styles.searchWrap}>
             <SearchField autoFocus onChangeText={onChangeQuery} placeholder={placeholder} value={query} />
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" style={styles.list}>
-            {results.length === 0 ? (
-              <Text style={styles.empty}>{emptyText}</Text>
-            ) : (
-              results.map((item) => (
-                <Pressable
-                  key={item.key}
-                  onPress={() => onSelect(item)}
-                  style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-                >
-                  <Text style={styles.rowTitle}>{item.title}</Text>
-                  {item.meta ? <Text style={styles.rowMeta}>{item.meta}</Text> : null}
-                </Pressable>
-              ))
-            )}
-          </ScrollView>
+          <FlatList
+            ListEmptyComponent={<Text style={styles.empty}>{emptyText}</Text>}
+            data={results}
+            keyExtractor={(item) => item.key}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => <SearchResultRow item={item} onSelect={onSelect} />}
+            style={styles.list}
+          />
         </View>
       </KeyboardAvoidingView>
     </Modal>

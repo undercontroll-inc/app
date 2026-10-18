@@ -38,7 +38,8 @@
           "enableBackgroundRecording": false,
           "microphonePermission": "A Pelluci usa o microfone para transcrever observações da ordem de serviço."
         }
-      ]
+      ],
+      "expo-image"
     ]
   }
 }

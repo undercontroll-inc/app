@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,7 +7,7 @@ import AppHeader from "../../../components/AppHeader";
 import OrderCard from "../../../components/OrderCard";
 import SearchField from "../../../components/SearchField";
 import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
-import { useDeleteOrder, useOrders, useUpdateOrderStatus } from "../../../hooks/queries/useOrders";
+import { useDeleteOrder, useInfiniteOrders, useUpdateOrderStatus } from "../../../hooks/queries/useOrders";
 import useRefreshOnFocus from "../../../hooks/useRefreshOnFocus";
 import { getErrorMessage } from "../../../providers/api";
 import { ORDER_STATUS_API, isOrderCompleted, toOrderCard } from "../../../utils/orders";
@@ -20,9 +20,10 @@ export default function OrdersScreen() {
   const [selectedFilter, setSelectedFilter] = useState("Todos");
   const [actionError, setActionError] = useState("");
   const menu = useActionMenu();
-  const ordersQuery = useOrders();
-  const updateStatus = useUpdateOrderStatus();
-  const deleteOrderMutation = useDeleteOrder();
+  const ordersQuery = useInfiniteOrders();
+  const { mutate: updateStatus } = useUpdateOrderStatus();
+  const { mutate: deleteOrderMutation } = useDeleteOrder();
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = ordersQuery;
   const { refetch } = ordersQuery;
   useRefreshOnFocus(refetch);
 
@@ -52,38 +53,50 @@ export default function OrdersScreen() {
     router.push("/orders/new");
   }
 
-  function openOrderActions(order) {
-    const completed = isOrderCompleted(order.status);
-    menu.show({
-      title: `OS #${order.id}`,
-      message: order.client,
-      options: [
-        {
-          label: completed ? "Marcar como pendente" : "Marcar como concluída",
-          onPress: () => setOrderCompleted(order, !completed),
-        },
-        {
-          label: "Excluir",
-          destructive: true,
-          onPress: () => deleteOrder(order),
-        },
-        { label: "Cancelar", cancel: true },
-      ],
-    });
-  }
+  const { show } = menu;
+  const openOrderActions = useCallback(
+    (order) => {
+      const completed = isOrderCompleted(order.status);
+      const onError = (err) => setActionError(getErrorMessage(err));
+      show({
+        title: `OS #${order.id}`,
+        message: order.client,
+        options: [
+          {
+            label: completed ? "Marcar como pendente" : "Marcar como concluída",
+            onPress: () => {
+              setActionError("");
+              updateStatus(
+                { orderId: order.id, status: ORDER_STATUS_API[completed ? "Pendente" : "Concluído"] },
+                { onError },
+              );
+            },
+          },
+          {
+            label: "Excluir",
+            destructive: true,
+            onPress: () => {
+              setActionError("");
+              deleteOrderMutation(order.id, { onError });
+            },
+          },
+          { label: "Cancelar", cancel: true },
+        ],
+      });
+    },
+    [deleteOrderMutation, show, updateStatus],
+  );
 
-  function setOrderCompleted(order, completed) {
-    setActionError("");
-    updateStatus.mutate(
-      { orderId: order.id, status: ORDER_STATUS_API[completed ? "Concluído" : "Pendente"] },
-      { onError: (err) => setActionError(getErrorMessage(err)) },
-    );
-  }
+  const openOrder = useCallback((order) => router.push(`/orders/${order.id}`), []);
 
-  function deleteOrder(order) {
-    setActionError("");
-    deleteOrderMutation.mutate(order.id, { onError: (err) => setActionError(getErrorMessage(err)) });
-  }
+  const renderItem = useCallback(
+    ({ item }) => <OrderCard onLongPress={openOrderActions} onPress={openOrder} order={item} />,
+    [openOrder, openOrderActions],
+  );
+
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   function renderEmpty() {
     if (loading) {
@@ -134,13 +147,10 @@ export default function OrdersScreen() {
         keyExtractor={(order) => order.id}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={renderEmpty}
-        renderItem={({ item }) => (
-          <OrderCard
-            onLongPress={() => openOrderActions(item)}
-            onPress={() => router.push(`/orders/${item.id}`)}
-            order={item}
-          />
-        )}
+        ListFooterComponent={isFetchingNextPage ? <ActivityIndicator color="#ef7f19" style={styles.footer} /> : null}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        renderItem={renderItem}
       />
       <Pressable
         onPress={openNew}
@@ -187,6 +197,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   state: { alignItems: "center", paddingVertical: 32 },
   stateText: { color: "#667994", fontSize: 15, marginTop: 12 },
+  footer: { marginVertical: 16 },
   actionError: { color: "#d71929", fontSize: 14, marginTop: 8 },
   errorText: { color: "#d71929", fontSize: 15, textAlign: "center" },
   retry: { marginTop: 12, padding: 10 },

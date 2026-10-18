@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -30,7 +30,7 @@ export default function ClientsScreen() {
   const [pulling, setPulling] = useState(false);
   const menu = useActionMenu();
   const customersQuery = useCustomers();
-  const deleteCustomer = useDeleteCustomer();
+  const { mutate: deleteCustomer } = useDeleteCustomer();
   const { refetch } = customersQuery;
   useRefreshOnFocus(refetch);
 
@@ -55,43 +55,50 @@ export default function ClientsScreen() {
 
   const fabBottom = Platform.OS === "ios" ? 16 + Math.max(insets.bottom, 8) : 22;
 
-  function openContact(url) {
-    if (!url) return;
-    Linking.openURL(url).catch(() => {
-      setActionError("Não foi possível abrir o aplicativo.");
-    });
-  }
+  const { show } = menu;
+  const openClientActions = useCallback(
+    (client) => {
+      const openContact = (url) => {
+        Linking.openURL(url).catch(() => {
+          setActionError("Não foi possível abrir o aplicativo.");
+        });
+      };
+      const callUrl = telUrl(client.phone);
+      const chatUrl = client.hasWhatsApp ? whatsappUrl(client.phone) : null;
+      const options = [];
+      if (callUrl) {
+        options.push({ label: "Ligar", onPress: () => openContact(callUrl) });
+      }
+      if (chatUrl) {
+        options.push({ label: "WhatsApp", onPress: () => openContact(chatUrl) });
+      }
+      options.push(
+        { label: "Editar", onPress: () => router.push(`/clients/${client.id}/edit`) },
+        {
+          label: "Excluir",
+          destructive: true,
+          onPress: () => {
+            setActionError("");
+            deleteCustomer(client.id, { onError: (err) => setActionError(getErrorMessage(err)) });
+          },
+        },
+        { label: "Cancelar", cancel: true },
+      );
+      show({
+        title: formatUserName(client),
+        message: client.phone || undefined,
+        options,
+      });
+    },
+    [deleteCustomer, show],
+  );
 
-  function openClientActions(client) {
-    const callUrl = telUrl(client.phone);
-    const chatUrl = client.hasWhatsApp ? whatsappUrl(client.phone) : null;
-    const options = [];
-    if (callUrl) {
-      options.push({ label: "Ligar", onPress: () => openContact(callUrl) });
-    }
-    if (chatUrl) {
-      options.push({ label: "WhatsApp", onPress: () => openContact(chatUrl) });
-    }
-    options.push(
-      { label: "Editar", onPress: () => router.push(`/clients/${client.id}/edit`) },
-      {
-        label: "Excluir",
-        destructive: true,
-        onPress: () => deleteClient(client),
-      },
-      { label: "Cancelar", cancel: true },
-    );
-    menu.show({
-      title: formatUserName(client),
-      message: client.phone || undefined,
-      options,
-    });
-  }
+  const openClient = useCallback((client) => router.push(`/clients/${client.id}`), []);
 
-  function deleteClient(client) {
-    setActionError("");
-    deleteCustomer.mutate(client.id, { onError: (err) => setActionError(getErrorMessage(err)) });
-  }
+  const renderItem = useCallback(
+    ({ item }) => <ClientCard client={item} onLongPress={openClientActions} onPress={openClient} />,
+    [openClient, openClientActions],
+  );
 
   function renderEmpty() {
     if (loading) {
@@ -132,13 +139,7 @@ export default function ClientsScreen() {
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={renderEmpty}
         refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={pulling} tintColor="#ef7f19" />}
-        renderItem={({ item }) => (
-          <ClientCard
-            client={item}
-            onLongPress={() => openClientActions(item)}
-            onPress={() => router.push(`/clients/${item.id}`)}
-          />
-        )}
+        renderItem={renderItem}
       />
       <Pressable
         accessibilityLabel="Cadastrar novo cliente"
