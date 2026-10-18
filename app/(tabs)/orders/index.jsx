@@ -10,7 +10,7 @@ import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
 import { useDeleteOrder, useOrders, useUpdateOrderStatus } from "../../../hooks/queries/useOrders";
 import useRefreshOnFocus from "../../../hooks/useRefreshOnFocus";
 import { getErrorMessage } from "../../../providers/api";
-import { ORDER_STATUS_API, toOrderCard } from "../../../utils/orders";
+import { ORDER_STATUS_API, isOrderCompleted, toOrderCard } from "../../../utils/orders";
 
 const filters = ["Todos", "Pendentes", "Em análise", "Concluídos"];
 
@@ -52,12 +52,8 @@ export default function OrdersScreen() {
     router.push("/orders/new");
   }
 
-  function isCompleted(order) {
-    return order.status === "Concluído" || order.status === "Entregue";
-  }
-
   function openOrderActions(order) {
-    const completed = isCompleted(order);
+    const completed = isOrderCompleted(order.status);
     menu.show({
       title: `OS #${order.id}`,
       message: order.client,

@@ -4,13 +4,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { Picker } from "@react-native-picker/picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { bottomDockPadding } from "../utils/layout";
-
-function getStatusColor(status) {
-  if (status === "Concluído") return "#25cf79";
-  if (status === "Entregue") return "#099ab3";
-  if (status === "Pendente") return "#f2c94c";
-  return "#f2994a";
-}
+import { getStatusColors } from "../utils/orders";
 
 export default function NativeSelect({ label, value, options, onSelect, dark, statusIndicator }) {
   const insets = useSafeAreaInsets();
@@ -32,7 +26,7 @@ export default function NativeSelect({ label, value, options, onSelect, dark, st
       {!!label && <Text style={styles.fieldLabel}>{label}</Text>}
       <Pressable onPress={openPicker} style={[styles.fieldBox, dark && styles.darkSelect]}>
         <View style={styles.valueRow}>
-          {statusIndicator && <View style={[styles.statusDot, { backgroundColor: getStatusColor(value) }]} />}
+          {statusIndicator && <View style={[styles.statusDot, { backgroundColor: getStatusColors(value).color }]} />}
           <Text style={[styles.fieldValue, dark && styles.darkSelectValue]}>{value}</Text>
         </View>
         <Feather color={dark ? "#ffffff" : "#667994"} name="chevron-down" size={20} />

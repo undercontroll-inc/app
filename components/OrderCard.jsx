@@ -1,11 +1,13 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { getStatusColors } from "../utils/orders";
 
 export default function OrderCard({ order, onPress, onLongPress }) {
+  const colors = getStatusColors(order.status);
   return (
     <Pressable delayLongPress={350} onLongPress={onLongPress} onPress={onPress} style={styles.card}>
       <View style={styles.row}>
         <Text style={styles.number}>#{order.id}</Text>
-        <Text style={[styles.badge, statusStyles[order.status]]}>{order.status}</Text>
+        <Text style={[styles.badge, { backgroundColor: colors.background, color: colors.color }]}>{order.status}</Text>
       </View>
       <Text style={styles.client}>{order.client}</Text>
       <Text style={styles.device}>{order.device}</Text>
@@ -37,18 +39,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  done: { backgroundColor: "#def4ed", color: "#0b9f76" },
-  delivered: { backgroundColor: "#def5fa", color: "#099ab3" },
-  pending: { backgroundColor: "#fff7de", color: "#c79200" },
-  analysis: { backgroundColor: "#ffe8e8", color: "#d83e3e" },
   client: { color: "#092542", fontSize: 15, fontWeight: "600", marginTop: 8 },
   device: { color: "#667994", fontSize: 14, marginTop: 2 },
   date: { color: "#667994", fontSize: 13, marginTop: 8 },
 });
-
-const statusStyles = {
-  Concluído: styles.done,
-  Entregue: styles.delivered,
-  Pendente: styles.pending,
-  "Em análise": styles.analysis,
-};

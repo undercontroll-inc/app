@@ -14,6 +14,24 @@ export const ORDER_STATUS_API = {
 
 export const ORDER_STATUS_OPTIONS = ["Pendente", "Em análise", "Concluído", "Entregue"];
 
+const ORDER_STATUS_COLORS = {
+  Concluído: { color: "#0b9f76", background: "#def4ed" },
+  Entregue: { color: "#099ab3", background: "#def5fa" },
+  Pendente: { color: "#c79200", background: "#fff7de" },
+  "Em análise": { color: "#d83e3e", background: "#ffe8e8" },
+};
+
+const DEFAULT_STATUS_COLORS = { color: "#667994", background: "#eef2f6" };
+
+export function getStatusColors(status) {
+  return ORDER_STATUS_COLORS[ORDER_STATUS_LABEL[status] || status] || DEFAULT_STATUS_COLORS;
+}
+
+export function isOrderCompleted(status) {
+  const label = ORDER_STATUS_LABEL[status] || status;
+  return label === "Concluído" || label === "Entregue";
+}
+
 export function formatUserName(user) {
   if (!user) return "Cliente";
   return [user.name, user.lastName].filter(Boolean).join(" ").trim() || "Cliente";

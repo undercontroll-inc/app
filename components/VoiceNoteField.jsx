@@ -2,23 +2,8 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import VoiceNoteSheet from "./VoiceNoteSheet";
 
-export default function VoiceNoteField({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  state,
-  onRecord,
-  onStart,
-  onStop,
-  onTranscribe,
-  onRerecord,
-  onDraftChange,
-  onInsert,
-  onReplace,
-  onUse,
-  onCancel,
-}) {
+export default function VoiceNoteField({ label, value, onChangeText, placeholder, field, voice }) {
+  const state = voice.stateFor(field);
   const status = state?.status || "idle";
   const sheetOpen = status !== "idle";
   const transcribing = status === "transcribing";
@@ -43,7 +28,7 @@ export default function VoiceNoteField({
             accessibilityLabel="Gravar áudio"
             disabled={state?.disabled}
             hitSlop={6}
-            onPress={onRecord}
+            onPress={() => voice.start(field)}
             style={({ pressed }) => [styles.mic, state?.disabled && styles.micDisabled, pressed && styles.pressed]}
           >
             <Feather color={state?.disabled ? "#9aaac0" : "#ef7f19"} name="mic" size={18} />
@@ -53,16 +38,16 @@ export default function VoiceNoteField({
       <VoiceNoteSheet
         fieldEmpty={empty}
         fieldLabel={label}
-        onClose={onCancel}
-        onDraftChange={onDraftChange}
-        onInsert={onInsert}
-        onReplace={onReplace}
-        onRerecord={onRerecord}
-        onRetry={onStart}
-        onStart={onStart}
-        onStop={onStop}
-        onTranscribe={onTranscribe}
-        onUse={onUse}
+        onClose={voice.cancel}
+        onDraftChange={voice.setDraftText}
+        onInsert={voice.applyInsert}
+        onReplace={voice.applyReplace}
+        onRerecord={voice.rerecord}
+        onRetry={voice.record}
+        onStart={voice.record}
+        onStop={voice.stop}
+        onTranscribe={voice.transcribe}
+        onUse={voice.applyUse}
         state={state}
         visible={sheetOpen}
       />

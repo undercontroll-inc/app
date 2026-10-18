@@ -9,15 +9,13 @@ import { useCustomer } from "../../../../hooks/queries/useCustomers";
 import { useOrders } from "../../../../hooks/queries/useOrders";
 import { getErrorMessage } from "../../../../providers/api";
 import { telUrl, whatsappUrl } from "../../../../utils/contact";
-import { formatAppliance, formatDateBR, formatUserName, ORDER_STATUS_LABEL } from "../../../../utils/orders";
-
-function getStatusColor(status) {
-  if (status === "Concluído") return "#0b9f76";
-  if (status === "Entregue") return "#099ab3";
-  if (status === "Pendente") return "#c79200";
-  if (status === "Em análise") return "#d83e3e";
-  return "#667994";
-}
+import {
+  formatAppliance,
+  formatDateBR,
+  formatUserName,
+  getStatusColors,
+  ORDER_STATUS_LABEL,
+} from "../../../../utils/orders";
 
 export default function ClientDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -138,8 +136,8 @@ export default function ClientDetailScreen() {
                       {formatAppliance(order.appliances?.[0])}
                     </Text>
                     <View style={styles.statusWrap}>
-                      <View style={[styles.statusDot, { backgroundColor: getStatusColor(status) }]} />
-                      <Text style={[styles.status, { color: getStatusColor(status) }]}>{status}</Text>
+                      <View style={[styles.statusDot, { backgroundColor: getStatusColors(status).color }]} />
+                      <Text style={[styles.status, { color: getStatusColors(status).color }]}>{status}</Text>
                     </View>
                   </View>
                 </Pressable>

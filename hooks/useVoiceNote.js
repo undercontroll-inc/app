@@ -8,7 +8,6 @@ import {
   useAudioRecorderState,
 } from "expo-audio";
 import { getErrorMessage } from "../providers/api";
-import { orderService } from "../services/OrderService";
 import { deleteRecordingFile, transcriptionService } from "../services/TranscriptionService";
 
 export const MAX_RECORDING_SECONDS = 60;
@@ -17,14 +16,6 @@ const RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
   isMeteringEnabled: true,
 };
-
-export function appendTranscribedText(current, incoming) {
-  const next = String(incoming || "").trim();
-  if (!next) return String(current || "");
-  const prev = String(current || "").trimEnd();
-  if (!prev) return next;
-  return `${prev}\n${next}`;
-}
 
 function afterPaint() {
   return new Promise((resolve) => setTimeout(resolve, 50));
@@ -54,7 +45,7 @@ function showPermissionAlert() {
   );
 }
 
-export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) {
+export default function useVoiceNote({ onApply, persist, onWarning } = {}) {
   const recorder = useAudioRecorder(RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder, 80);
   const [activeField, setActiveField] = useState(null);
@@ -63,7 +54,6 @@ export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) 
   const [uri, setUri] = useState(null);
   const [durationMs, setDurationMs] = useState(0);
   const [draftText, setDraftText] = useState("");
-  const pendingRef = useRef(null);
   const uriRef = useRef(null);
   const seenRecording = useRef(false);
   const stopping = useRef(false);
@@ -131,7 +121,7 @@ export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) 
   }, [recorder]);
 
   const beginRecording = useCallback(
-    async (field, { setValue, patchKey }) => {
+    async (field) => {
       setErrorMessage("");
       const permission = await requestRecordingPermissionsAsync();
       if (!permission.granted) {
@@ -140,7 +130,6 @@ export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) 
       }
 
       try {
-        pendingRef.current = { setValue, patchKey };
         seenRecording.current = false;
         stopping.current = false;
         setActiveField(field);
@@ -162,13 +151,12 @@ export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) 
   );
 
   const start = useCallback(
-    (field, options) => {
+    (field) => {
       if (Platform.OS === "web") {
         Alert.alert("Indisponível no navegador", "Grave o áudio pelo app no celular.");
         return;
       }
       if (status !== "idle" && status !== "error") return;
-      pendingRef.current = options;
       setActiveField(field);
       setErrorMessage("");
       setStatus("ready");
@@ -178,10 +166,8 @@ export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) 
 
   const record = useCallback(async () => {
     if (status !== "ready" && status !== "error") return;
-    const field = activeField;
-    const pending = pendingRef.current;
-    if (!field || !pending) return;
-    await beginRecording(field, pending);
+    if (!activeField) return;
+    await beginRecording(activeField);
   }, [activeField, beginRecording, status]);
 
   const transcribe = useCallback(async () => {
@@ -218,19 +204,14 @@ export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) 
 
   const applyDraft = useCallback(
     async (mode) => {
-      const pending = pendingRef.current;
+      const field = activeField;
       const text = String(draftText || "").trim();
-      if (!pending?.setValue || !text) return;
+      if (!field || !text) return;
 
-      let nextValue = text;
-      pending.setValue((current) => {
-        nextValue = mode === "replace" ? text : appendTranscribedText(current, text);
-        return nextValue;
-      });
-
-      if (edit && orderId && pending.patchKey) {
+      const nextValue = onApply?.(field, text, mode);
+      if (persist && nextValue != null) {
         try {
-          await orderService.update(orderId, { [pending.patchKey]: nextValue });
+          await persist(field, nextValue);
         } catch (error) {
           onWarning?.(
             getErrorMessage(error) || "Texto aplicado, mas não foi possível salvar. Use o botão de salvar da OS.",
@@ -238,13 +219,12 @@ export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) 
         }
       }
 
-      pendingRef.current = null;
       setDraftText("");
       setActiveField(null);
       setStatus("idle");
       setErrorMessage("");
     },
-    [draftText, edit, onWarning, orderId],
+    [activeField, draftText, onApply, onWarning, persist],
   );
 
   const cancel = useCallback(async () => {
@@ -265,14 +245,12 @@ export default function useVoiceNote({ edit = false, orderId, onWarning } = {}) 
       setActiveField(null);
       setStatus("idle");
       setErrorMessage("");
-      pendingRef.current = null;
       stopping.current = false;
       await afterPaint();
       deleteRecordingFile(path);
       deleteRecordingFile(recorder.uri || recStatus?.url);
       return;
     }
-    pendingRef.current = null;
     setUri(null);
     setDurationMs(0);
     setDraftText("");

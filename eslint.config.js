@@ -19,7 +19,7 @@ module.exports = defineConfig([
     languageOptions: { globals: globals.node },
   },
   {
-    files: ["**/__tests__/**/*.{js,jsx}", "jest.setup.js"],
+    files: ["**/__tests__/**/*.{js,jsx}", "test/**/*.{js,jsx}", "jest.setup.js"],
     languageOptions: { globals: globals.jest },
   },
 ]);
