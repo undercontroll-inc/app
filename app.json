@@ -5,11 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/logo_pelluci.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#061d2d"
-    },
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
@@ -37,6 +32,18 @@
         {
           "enableBackgroundRecording": false,
           "microphonePermission": "A Pelluci usa o microfone para transcrever observações da ordem de serviço."
+        }
+      ],
+      "expo-image",
+      "expo-font",
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo_pelluci.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#061d2d"
         }
       ]
     ]

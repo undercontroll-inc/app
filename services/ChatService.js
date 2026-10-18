@@ -1,32 +1,20 @@
-import { fetch } from "expo/fetch";
-import { apiClient, getApiBaseURL } from "../providers/api";
-import { getToken } from "../utils/auth";
-import { createSseParser, parseApiErrorBody } from "../utils/chat";
+import { ApiError, apiClient, authorizedFetch, parseApiError } from "../providers/api";
+import { createSseParser } from "../utils/chat";
 
 class ChatService {
-  async sendMessage(content) {
-    const response = await apiClient.post(
-      "/chats/messages",
-      { content },
-      { timeout: 60000 },
-    );
+  async sendMessage({ content, conversationId }) {
+    const response = await apiClient.post("/chats/messages", { content, conversationId }, { timeout: 60000 });
     return response.data;
   }
 
-  async streamMessage({ content, signal, onEvent }) {
-    const token = getToken();
-    const headers = {
-      Accept: "text/event-stream, application/json",
-      "Content-Type": "application/json",
-    };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${getApiBaseURL()}/chats/messages/stream`, {
+  async streamMessage({ content, conversationId, signal, onEvent }) {
+    const response = await authorizedFetch("/chats/messages/stream", {
       method: "POST",
-      headers,
-      body: JSON.stringify({ content }),
+      headers: {
+        Accept: "text/event-stream, application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ content, conversationId }),
       signal,
     });
 
@@ -34,8 +22,7 @@ class ChatService {
     const isJson = contentType.includes("application/json") && !contentType.includes("text/event-stream");
 
     if (!response.ok || isJson) {
-      const text = await response.text();
-      throw new Error(parseApiErrorBody(text) || `Erro ${response.status}`);
+      throw new ApiError(parseApiError(response.status, await response.text()));
     }
 
     if (!response.body) {

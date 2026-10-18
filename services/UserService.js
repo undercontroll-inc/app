@@ -1,8 +1,9 @@
 import { apiClient } from "../providers/api";
 
 class UserService {
-  async list({ type, hasEmail } = {}) {
+  async list({ type, hasEmail, signal } = {}) {
     const response = await apiClient.get("/users", {
+      signal,
       params: {
         ...(type ? { type } : {}),
         ...(hasEmail != null ? { hasEmail } : {}),
@@ -11,12 +12,12 @@ class UserService {
     return response.data ?? [];
   }
 
-  async getCustomers() {
-    return this.list({ type: "CUSTOMER" });
+  async getCustomers({ signal } = {}) {
+    return this.list({ type: "CUSTOMER", signal });
   }
 
-  async getById(userId) {
-    const response = await apiClient.get(`/users/${userId}`);
+  async getById(userId, { signal } = {}) {
+    const response = await apiClient.get(`/users/${userId}`, { signal });
     return response.data;
   }
 

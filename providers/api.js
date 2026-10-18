@@ -1,14 +1,20 @@
 import axios from "axios";
+import Constants from "expo-constants";
+import { fetch as expoFetch } from "expo/fetch";
 import { Platform } from "react-native";
 import { clearAuth, getRefreshToken, getToken, saveTokens } from "../utils/auth";
+import { ApiError, UNAUTHORIZED_MESSAGE } from "./apiError";
+import { resolveApiBaseURL } from "./apiHost";
+
+export { ApiError, getErrorMessage, isAbortError, normalizeError, parseApiError } from "./apiError";
 
 export function getApiBaseURL() {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-  const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
-  const port = process.env.EXPO_PUBLIC_API_PORT || "8080";
-  return `http://${host}:${port}/v1/api`;
+  return resolveApiBaseURL({
+    apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    apiPort: process.env.EXPO_PUBLIC_API_PORT,
+    hostUri: Constants.expoConfig?.hostUri ?? Constants.expoGoConfig?.debuggerHost,
+    platform: Platform.OS,
+  });
 }
 
 const baseURL = getApiBaseURL();
@@ -46,16 +52,16 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+async function expireSession() {
+  await clearAuth();
+  onUnauthorized?.();
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
-    if (
-      error.response?.status === 401 &&
-      original &&
-      !original._retry &&
-      !isPublicAuthRequest(original.url)
-    ) {
+    if (error.response?.status === 401 && original && !original._retry && !isPublicAuthRequest(original.url)) {
       original._retry = true;
       try {
         await refreshAccessToken();
@@ -63,8 +69,7 @@ apiClient.interceptors.response.use(
         original.headers.Authorization = `Bearer ${getToken()}`;
         return apiClient(original);
       } catch {
-        await clearAuth();
-        onUnauthorized?.();
+        await expireSession();
       }
     }
 
@@ -72,7 +77,7 @@ apiClient.interceptors.response.use(
   },
 );
 
-async function refreshAccessToken() {
+export async function refreshAccessToken() {
   if (!refreshPromise) {
     refreshPromise = doRefresh().finally(() => {
       refreshPromise = null;
@@ -94,26 +99,21 @@ async function doRefresh() {
   await saveTokens(accessToken, nextRefresh);
 }
 
-export function getAxiosErrorMessage(error) {
-  if (error.response?.data) {
-    const data = error.response.data;
+function withAuthorization(headers = {}) {
+  const token = getToken();
+  return token ? { ...headers, Authorization: `Bearer ${token}` } : { ...headers };
+}
 
-    if (typeof data === "string") return data;
-    if (data.message) return data.message;
-    if (data.error) return data.error;
-    if (data.msg) return data.msg;
-    if (data.detail) return data.detail;
+export async function authorizedFetch(path, init = {}) {
+  const url = `${getApiBaseURL()}${path}`;
+  const response = await expoFetch(url, { ...init, headers: withAuthorization(init.headers) });
+  if (response.status !== 401) return response;
 
-    if (Array.isArray(data.errors) && data.errors.length > 0) {
-      return data.errors.map((err) => err.message || err).join(", ");
-    }
-
-    return JSON.stringify(data);
+  try {
+    await refreshAccessToken();
+  } catch {
+    await expireSession();
+    throw new ApiError({ status: 401, code: "UNAUTHORIZED", message: UNAUTHORIZED_MESSAGE });
   }
-
-  if (error.request) {
-    return "Erro de conexão. Verifique se o servidor está rodando.";
-  }
-
-  return error.message || "Erro desconhecido";
+  return expoFetch(url, { ...init, headers: withAuthorization(init.headers) });
 }

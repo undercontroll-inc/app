@@ -1,0 +1,5 @@
+bun.lock
+mock/db.json
+mock/db.runtime.json
+dist
+.expo

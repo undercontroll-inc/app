@@ -1,8 +1,9 @@
 import { apiClient } from "../providers/api";
 
 class OrderService {
-  async list({ userId, page = 0, size = 50 } = {}) {
+  async list({ userId, page = 0, size = 50, signal } = {}) {
     const response = await apiClient.get("/orders", {
+      signal,
       params: {
         page,
         size,
@@ -12,8 +13,8 @@ class OrderService {
     return response.data ?? { data: [], totalElements: 0, totalPages: 0, page, size };
   }
 
-  async getById(orderId) {
-    const response = await apiClient.get(`/orders/${orderId}`);
+  async getById(orderId, { signal } = {}) {
+    const response = await apiClient.get(`/orders/${orderId}`, { signal });
     return response.data?.data ?? response.data;
   }
 

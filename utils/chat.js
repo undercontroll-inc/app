@@ -118,12 +118,87 @@ export function createSseParser(onEvent) {
   };
 }
 
-export function parseApiErrorBody(text) {
-  if (!text) return "";
-  try {
-    const data = JSON.parse(text);
-    return data.message || data.error || data.detail || data.code || text;
-  } catch {
-    return text;
+const CONVERSATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+export function isValidConversationId(value) {
+  return typeof value === "string" && CONVERSATION_ID_PATTERN.test(value);
+}
+
+export function createConversationId(now = Date.now(), random = Math.random) {
+  const suffix = Math.floor(random() * 36 ** 6)
+    .toString(36)
+    .padStart(6, "0");
+  return `app-${now.toString(36)}-${suffix}`;
+}
+
+export const CHAT_ERROR_MESSAGES = {
+  CHAT_TIMEOUT: "A Ana demorou demais para responder. Tente novamente.",
+  CHAT_UNAVAILABLE: "A Ana está indisponível no momento. Tente novamente em instantes.",
+  CHAT_CONVERSATION_BUSY: "A Ana ainda está respondendo a mensagem anterior desta conversa. Aguarde um instante.",
+};
+
+export const PARTIAL_REASON_MESSAGES = {
+  max_tokens: "A resposta atingiu o limite de tamanho.",
+  timeout: "A resposta foi interrompida por demora.",
+  interrupted: "A resposta foi interrompida.",
+};
+
+export function partialNotice(reason) {
+  return PARTIAL_REASON_MESSAGES[reason] || PARTIAL_REASON_MESSAGES.interrupted;
+}
+
+export function isTerminalStatus(status) {
+  return status === "complete" || status === "partial" || status === "error";
+}
+
+export function applyChatEvent(message, event) {
+  const data = event?.data ?? {};
+  switch (event?.event) {
+    case "delta":
+      return { ...message, content: `${message.content}${data.content ?? ""}`, status: "streaming" };
+    case "done": {
+      const content = data.content || message.content;
+      if (!content) {
+        return { ...message, status: "error", errorMessage: "Não recebi uma resposta.", retryable: true };
+      }
+      return { ...message, content, status: "complete" };
+    }
+    case "partial":
+      return {
+        ...message,
+        content: data.content || message.content,
+        status: "partial",
+        reason: data.reason || "interrupted",
+        retryable: data.retryable !== false,
+      };
+    case "error":
+      return {
+        ...message,
+        status: "error",
+        code: data.code || null,
+        errorMessage: CHAT_ERROR_MESSAGES[data.code] || data.message || "Não foi possível responder.",
+        retryable: data.retryable !== false,
+      };
+    default:
+      return message;
   }
+}
+
+export function finalizeStream(message) {
+  if (isTerminalStatus(message.status)) return message;
+  if (message.content) {
+    return { ...message, status: "partial", reason: "interrupted", retryable: true };
+  }
+  return { ...message, status: "error", errorMessage: "Não recebi uma resposta.", retryable: true };
+}
+
+export function replaceMessage(messages, id, updater) {
+  const lastIndex = messages.length - 1;
+  const index = messages[lastIndex]?.id === id ? lastIndex : messages.findIndex((message) => message.id === id);
+  if (index === -1) return messages;
+  const next = updater(messages[index]);
+  if (next === messages[index]) return messages;
+  const copy = messages.slice();
+  copy[index] = next;
+  return copy;
 }

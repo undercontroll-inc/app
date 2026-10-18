@@ -1,13 +1,14 @@
 import { apiClient } from "../providers/api";
 
 class InsightService {
-  async getInsights() {
-    const response = await apiClient.get("/insights");
+  async getInsights({ signal } = {}) {
+    const response = await apiClient.get("/insights", { signal });
     return response.data;
   }
 
-  async generate() {
-    await apiClient.post("/insights");
+  async requestJob() {
+    const response = await apiClient.post("/market/insights/jobs");
+    return response.data;
   }
 }
 
