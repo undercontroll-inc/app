@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import Feather from "@expo/vector-icons/Feather";
@@ -19,9 +19,9 @@ import ChatMessage from "../../components/chat/ChatMessage";
 import ChatScrollView from "../../components/chat/ChatScrollView";
 import ChatSuggestions from "../../components/chat/ChatSuggestions";
 import { useTabBarVisibility } from "../../contexts/TabBarVisibilityContext";
-import { getErrorMessage, isAbortError } from "../../providers/api";
-import { chatService } from "../../services/ChatService";
-import { createMessage, unwrapSuggestions } from "../../utils/chat";
+import { useChatSuggestions, useRefreshChatSuggestions } from "../../hooks/queries/useChatSuggestions";
+import useAnaChat from "../../hooks/useAnaChat";
+import { getErrorMessage } from "../../providers/api";
 
 const MIN_INPUT_HEIGHT = 52;
 
@@ -30,18 +30,16 @@ export default function ChatScreen() {
   const { setHidden } = useTabBarVisibility();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const extraContentPadding = useSharedValue(0);
-  const streamAbort = useRef(null);
-  const requestId = useRef(0);
+  const { messages, sending, busyNotice, send, retry, reset } = useAnaChat();
   const [draft, setDraft] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [suggestions, setSuggestions] = useState([]);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
-  const [suggestionsError, setSuggestionsError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
+  const suggestionsQuery = useChatSuggestions();
+  const refreshMutation = useRefreshChatSuggestions();
+  const suggestionsError = refreshMutation.isError
+    ? getErrorMessage(refreshMutation.error)
+    : suggestionsQuery.isError
+      ? getErrorMessage(suggestionsQuery.error)
+      : "";
 
-  const sending = messages.some(
-    (message) => message.role === "assistant" && (message.status === "pending" || message.status === "streaming"),
-  );
   const hasThread = messages.length > 0;
   const maintainVisibleContentPosition = useMemo(
     () => ({
@@ -53,32 +51,9 @@ export default function ChatScreen() {
   );
   const dockPadding = Platform.OS === "ios" && !keyboardVisible ? insets.bottom : 0;
 
-  const loadSuggestions = useCallback(async () => {
-    try {
-      setSuggestionsError("");
-      const payload = await chatService.getSuggestions();
-      setSuggestions(unwrapSuggestions(payload));
-    } catch (error) {
-      setSuggestionsError(getErrorMessage(error));
-    } finally {
-      setSuggestionsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadSuggestions();
-  }, [loadSuggestions]);
-
   useEffect(() => {
     setHidden(keyboardVisible);
   }, [keyboardVisible, setHidden]);
-
-  useEffect(() => {
-    return () => {
-      requestId.current += 1;
-      streamAbort.current?.abort();
-    };
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -86,115 +61,18 @@ export default function ChatScreen() {
     }, [setHidden]),
   );
 
-  const refreshSuggestions = useCallback(async () => {
-    try {
-      setRefreshing(true);
-      setSuggestionsError("");
-      const payload = await chatService.refreshSuggestions();
-      setSuggestions(unwrapSuggestions(payload));
-    } catch (error) {
-      setSuggestionsError(getErrorMessage(error));
-    } finally {
-      setRefreshing(false);
-    }
-  }, []);
-
+  const refetchSuggestions = suggestionsQuery.refetch;
   const resetConversation = useCallback(() => {
-    requestId.current += 1;
-    streamAbort.current?.abort();
-    streamAbort.current = null;
-    setMessages([]);
+    reset();
     setDraft("");
-    setSuggestionsLoading(true);
-    loadSuggestions();
-  }, [loadSuggestions]);
+    refetchSuggestions();
+  }, [refetchSuggestions, reset]);
 
   const sendMessage = useCallback(
-    async (text) => {
-      const content = String(text || "").trim();
-      if (!content || sending) return;
-
-      setDraft("");
-      const currentRequest = requestId.current + 1;
-      requestId.current = currentRequest;
-      streamAbort.current?.abort();
-      const controller = new AbortController();
-      streamAbort.current = controller;
-
-      const userMessage = createMessage({ role: "user", content, status: "complete" });
-      const assistantMessage = createMessage({ role: "assistant", content: "", status: "pending" });
-      setMessages((current) => [...current, userMessage, assistantMessage]);
-
-      const updateAssistant = (updater) => {
-        if (requestId.current !== currentRequest) return;
-        setMessages((current) =>
-          current.map((message) => (message.id === assistantMessage.id ? updater(message) : message)),
-        );
-      };
-
-      try {
-        await chatService.streamMessage({
-          content,
-          signal: controller.signal,
-          onEvent: (event) => {
-            if (requestId.current !== currentRequest) return;
-            if (event.event === "delta") {
-              const chunk = event.data?.content ?? "";
-              updateAssistant((message) => ({
-                ...message,
-                content: `${message.content}${chunk}`,
-                status: "streaming",
-              }));
-              return;
-            }
-            if (event.event === "done") {
-              const reply = event.data?.content;
-              updateAssistant((message) => ({
-                ...message,
-                content: reply || message.content || "Não recebi uma resposta.",
-                status: "complete",
-              }));
-              return;
-            }
-            if (event.event === "error") {
-              updateAssistant((message) => ({
-                ...message,
-                content: event.data?.message || "Não foi possível responder.",
-                status: "error",
-              }));
-            }
-          },
-        });
-        updateAssistant((message) => {
-          if (message.status === "complete" || message.status === "error") return message;
-          return {
-            ...message,
-            content: message.content || "Não recebi uma resposta.",
-            status: message.content ? "complete" : "error",
-          };
-        });
-      } catch (error) {
-        if (requestId.current !== currentRequest) return;
-        if (isAbortError(error)) {
-          updateAssistant((message) =>
-            message.status === "pending" || message.status === "streaming"
-              ? {
-                  ...message,
-                  content: message.content || "Resposta interrompida.",
-                  status: message.content ? "complete" : "error",
-                }
-              : message,
-          );
-          return;
-        }
-        updateAssistant((message) => ({
-          ...message,
-          content: error?.message || getErrorMessage(error),
-          status: "error",
-        }));
-      }
+    (text) => {
+      if (send(text)) setDraft("");
     },
-    [sending],
+    [send],
   );
 
   const handleSend = useCallback(() => {
@@ -204,7 +82,7 @@ export default function ChatScreen() {
   const onInputLayout = useCallback(
     (event) => {
       const height = event.nativeEvent.layout.height;
-      extraContentPadding.value = withTiming(Math.max(height - MIN_INPUT_HEIGHT, 0), { duration: 250 });
+      extraContentPadding.set(withTiming(Math.max(height - MIN_INPUT_HEIGHT, 0), { duration: 250 }));
     },
     [extraContentPadding],
   );
@@ -214,10 +92,11 @@ export default function ChatScreen() {
     [extraContentPadding],
   );
 
-  const renderItem = useCallback(({ item }) => <ChatMessage message={item} />, []);
+  const renderItem = useCallback(({ item }) => <ChatMessage message={item} onRetry={retry} />, [retry]);
 
   const composer = (
     <KeyboardStickyView offset={{ closed: 0, opened: 0 }} style={[styles.composerDock, { paddingBottom: dockPadding }]}>
+      {busyNotice ? <Text style={styles.busyNotice}>{busyNotice}</Text> : null}
       <ChatComposer
         disabled={sending}
         nativeID="chat-input"
@@ -249,11 +128,11 @@ export default function ChatScreen() {
             </View>
             <ChatSuggestions
               error={suggestionsError}
-              loading={suggestionsLoading}
-              onRefresh={refreshSuggestions}
+              loading={suggestionsQuery.isPending}
+              onRefresh={() => refreshMutation.mutate()}
               onSelect={sendMessage}
-              refreshing={refreshing}
-              suggestions={suggestions}
+              refreshing={refreshMutation.isPending}
+              suggestions={suggestionsQuery.data ?? []}
             />
           </KeyboardAwareScrollView>
           {composer}
@@ -342,6 +221,12 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 20,
     paddingVertical: 16,
+  },
+  busyNotice: {
+    color: "#c79200",
+    fontSize: 13,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   composerDock: {
     backgroundColor: "#ffffff",

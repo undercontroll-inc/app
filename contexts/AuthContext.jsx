@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { setOnUnauthorized } from "../providers/api";
 import { authService } from "../services/AuthService";
 import { clearAuth, hydrateAuth, saveTokens, saveUserData } from "../utils/auth";
+import { clearConversation } from "../utils/conversation";
 
 const AuthContext = createContext(null);
 
@@ -44,7 +45,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await clearAuth();
+    await Promise.all([clearAuth(), clearConversation()]);
     queryClient.clear();
     setUser(null);
   }, [queryClient]);

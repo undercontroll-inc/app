@@ -2,19 +2,19 @@ import { ApiError, apiClient, authorizedFetch, parseApiError } from "../provider
 import { createSseParser } from "../utils/chat";
 
 class ChatService {
-  async sendMessage(content) {
-    const response = await apiClient.post("/chats/messages", { content }, { timeout: 60000 });
+  async sendMessage({ content, conversationId }) {
+    const response = await apiClient.post("/chats/messages", { content, conversationId }, { timeout: 60000 });
     return response.data;
   }
 
-  async streamMessage({ content, signal, onEvent }) {
+  async streamMessage({ content, conversationId, signal, onEvent }) {
     const response = await authorizedFetch("/chats/messages/stream", {
       method: "POST",
       headers: {
         Accept: "text/event-stream, application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, conversationId }),
       signal,
     });
 

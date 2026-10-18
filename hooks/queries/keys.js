@@ -15,6 +15,7 @@ export const queryKeys = {
     list: () => ["components", "list"],
     detail: (componentId) => ["components", "detail", String(componentId)],
   },
+  chatSuggestions: ["chat", "suggestions"],
   insights: ["insights"],
   dashboard: (period) => ["dashboard", period],
 };

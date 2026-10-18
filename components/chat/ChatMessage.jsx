@@ -1,7 +1,8 @@
-import { Fragment, useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { Fragment, memo, useMemo } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import Feather from "@expo/vector-icons/Feather";
 import { useMarkdown } from "react-native-marked";
-import { normalizeMarkdown } from "../../utils/chat";
+import { normalizeMarkdown, partialNotice } from "../../utils/chat";
 
 const markdownStyles = {
   text: { color: "#092542", fontSize: 16, lineHeight: 24 },
@@ -20,14 +21,35 @@ const markdownStyles = {
   blockquote: { borderLeftColor: "#ef7f19", borderLeftWidth: 3, paddingLeft: 12 },
 };
 
-export default function ChatMessage({ message }) {
-  const markdownValue = useMemo(() => normalizeMarkdown(message.content), [message.content]);
+const MarkdownContent = memo(function MarkdownContent({ id, content }) {
+  const markdownValue = useMemo(() => normalizeMarkdown(content), [content]);
   const elements = useMarkdown(markdownValue, {
     colorScheme: "light",
     styles: markdownStyles,
   });
-  const waiting = message.status === "pending" || message.status === "streaming";
+  return elements.map((element, index) => <Fragment key={`${id}-${index}`}>{element}</Fragment>);
+});
 
+function Notice({ text, tone, onRetry }) {
+  return (
+    <View style={styles.notice}>
+      {text ? <Text style={[styles.noticeText, tone === "error" && styles.noticeError]}>{text}</Text> : null}
+      {onRetry ? (
+        <Pressable
+          accessibilityLabel="Tentar novamente"
+          hitSlop={6}
+          onPress={onRetry}
+          style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
+        >
+          <Feather color="#ef7f19" name="rotate-cw" size={14} />
+          <Text style={styles.retryText}>Tentar novamente</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function ChatMessage({ message, onRetry }) {
   if (message.role === "user") {
     return (
       <View style={styles.userRow}>
@@ -38,36 +60,53 @@ export default function ChatMessage({ message }) {
     );
   }
 
-  if (message.status === "error") {
+  const retry = message.retryable && onRetry ? () => onRetry(message) : undefined;
+
+  if (message.status === "error" && !message.content) {
     return (
       <View style={styles.assistantRow}>
         <View style={styles.errorBubble}>
-          <Text style={styles.errorText}>{message.content || "Não foi possível responder."}</Text>
+          <Text style={styles.errorText}>{message.errorMessage || "Não foi possível responder."}</Text>
+          {retry ? <Notice onRetry={retry} text="" tone="error" /> : null}
         </View>
       </View>
     );
   }
 
-  return (
-    <View style={styles.assistantRow}>
-      <View style={styles.assistantBubble}>
-        {message.status === "pending" && !message.content ? (
+  if (message.status === "pending" && !message.content) {
+    return (
+      <View style={styles.assistantRow}>
+        <View style={styles.assistantBubble}>
           <View style={styles.pending}>
             <ActivityIndicator color="#ef7f19" />
             <Text style={styles.pendingText}>Ana está pensando…</Text>
           </View>
-        ) : (
+        </View>
+      </View>
+    );
+  }
+
+  const streaming = message.status === "pending" || message.status === "streaming";
+
+  return (
+    <View style={styles.assistantRow}>
+      <View style={styles.assistantBubble}>
+        {streaming ? (
           <>
-            {elements.map((element, index) => (
-              <Fragment key={`${message.id}-${index}`}>{element}</Fragment>
-            ))}
-            {waiting ? <ActivityIndicator color="#ef7f19" style={styles.streamHint} /> : null}
+            <Text style={markdownStyles.text}>{message.content}</Text>
+            <ActivityIndicator color="#ef7f19" style={styles.streamHint} />
           </>
+        ) : (
+          <MarkdownContent content={message.content} id={message.id} />
         )}
+        {message.status === "partial" ? <Notice onRetry={retry} text={partialNotice(message.reason)} /> : null}
+        {message.status === "error" ? <Notice onRetry={retry} text={message.errorMessage} tone="error" /> : null}
       </View>
     </View>
   );
 }
+
+export default memo(ChatMessage);
 
 const styles = StyleSheet.create({
   userRow: {
@@ -131,6 +170,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  notice: {
+    borderTopColor: "#dce4ee",
+    borderTopWidth: 1,
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+  },
+  noticeText: { color: "#667994", fontSize: 13 },
+  noticeError: { color: "#d71929" },
+  retry: { alignItems: "center", alignSelf: "flex-start", flexDirection: "row", gap: 6, paddingVertical: 2 },
+  retryText: { color: "#ef7f19", fontSize: 14, fontWeight: "700" },
+  pressed: { opacity: 0.72 },
   errorText: {
     color: "#d71929",
     fontSize: 15,
