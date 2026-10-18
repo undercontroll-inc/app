@@ -11,11 +11,10 @@ import NativeSelect from "./NativeSelect";
 import ScreenHeader from "./ScreenHeader";
 import SearchSheet from "./SearchSheet";
 import VoiceNoteField from "./VoiceNoteField";
+import { useComponents } from "../hooks/queries/useComponents";
+import { useCustomers } from "../hooks/queries/useCustomers";
+import { useOrder, useOrderDemands, useSaveOrder, useUpdateOrderStatus } from "../hooks/queries/useOrders";
 import { getErrorMessage } from "../providers/api";
-import { componentService } from "../services/ComponentService";
-import { demandService } from "../services/DemandService";
-import { orderService } from "../services/OrderService";
-import { userService } from "../services/UserService";
 import { ORDER_STATUS_API, ORDER_STATUS_LABEL, formatCurrency, formatDateBR, formatUserName } from "../utils/orders";
 import { bottomDockPadding } from "../utils/layout";
 
@@ -131,14 +130,10 @@ export default function OrderForm({ edit, orderId }) {
   const [status, setStatus] = useState("Pendente");
   const [collapsedDevices, setCollapsedDevices] = useState({});
   const [feedback, setFeedback] = useState("");
-  const voice = useVoiceNote({ edit, orderId, onWarning: setFeedback });
-  const [loading, setLoading] = useState(!!edit);
-  const [saving, setSaving] = useState(false);
-  const [clients, setClients] = useState([]);
+  const [hydrated, setHydrated] = useState(!edit);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientSheetOpen, setClientSheetOpen] = useState(false);
   const [clientQuery, setClientQuery] = useState("");
-  const [components, setComponents] = useState([]);
   const [partSheetOpen, setPartSheetOpen] = useState(false);
   const [partQuery, setPartQuery] = useState("");
   const [note, setNote] = useState("");
@@ -149,6 +144,18 @@ export default function OrderForm({ edit, orderId }) {
   const [discount, setDiscount] = useState("0");
   const [receivedAt, setReceivedAt] = useState(todayBR());
   const [deadline, setDeadline] = useState(todayBR(7));
+  const voice = useVoiceNote({ edit, orderId, onWarning: setFeedback });
+  const customersQuery = useCustomers();
+  const componentsQuery = useComponents();
+  const orderQuery = useOrder(orderId, { enabled: !!edit });
+  const demandsQuery = useOrderDemands(orderId, { enabled: !!edit });
+  const saveOrder = useSaveOrder();
+  const updateStatus = useUpdateOrderStatus();
+  const clients = useMemo(() => customersQuery.data ?? [], [customersQuery.data]);
+  const components = useMemo(() => componentsQuery.data ?? [], [componentsQuery.data]);
+  const saving = saveOrder.isPending;
+  const loading = !!edit && !hydrated && !orderQuery.isError;
+  const loadError = edit && orderQuery.isError ? getErrorMessage(orderQuery.error) : "";
 
   useFocusEffect(
     useCallback(() => {
@@ -199,86 +206,44 @@ export default function OrderForm({ edit, orderId }) {
     return () => clearTimeout(timeout);
   }, [feedback]);
 
-  useEffect(() => {
-    let active = true;
+  if (!hydrated && orderQuery.data && demandsQuery.data) {
+    const order = orderQuery.data;
+    setHydrated(true);
+    setSelectedClient(order.user ?? null);
+    setStatus(ORDER_STATUS_LABEL[order.status] || "Pendente");
+    setNote(order.customerDescription || "");
+    setTechnicalNote(order.technicalDescription || "");
+    setDiscount(String(order.discount ?? 0));
+    setReceivedAt(formatDateBR(order.receivedAt) || todayBR());
+    setDeadline(formatDateBR(order.deadline) || todayBR(7));
 
-    async function loadLookups() {
-      try {
-        const [customers, stock] = await Promise.all([userService.getCustomers(), componentService.list()]);
-        if (!active) return;
-        setClients(customers);
-        setComponents(stock);
-      } catch (error) {
-        if (active) setFeedback(getErrorMessage(error));
-      }
-    }
+    const loadedDevices = (order.appliances ?? []).map((item, index) => ({
+      key: `device-${item.id ?? index}`,
+      id: item.id,
+      appliance: item.type || "",
+      brand: item.brand || "",
+      model: item.model || "",
+      voltage: item.volt || "127V",
+      serial: item.series || "",
+      labor: item.laborValue ?? 0,
+    }));
+    const nextDevices = loadedDevices.length ? loadedDevices : [emptyDevice()];
+    setDevices(nextDevices);
+    setCollapsedDevices(Object.fromEntries(nextDevices.map((device) => [device.key, true])));
 
-    loadLookups();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!edit || !orderId) return undefined;
-    let active = true;
-
-    async function loadOrder() {
-      try {
-        setLoading(true);
-        const [order, demands] = await Promise.all([
-          orderService.getById(orderId),
-          demandService.list(orderId).catch(() => []),
-        ]);
-        if (!active) return;
-
-        const client = order.user ?? null;
-        setSelectedClient(client);
-        setStatus(ORDER_STATUS_LABEL[order.status] || "Pendente");
-        setNote(order.customerDescription || "");
-        setTechnicalNote(order.technicalDescription || "");
-        setDiscount(String(order.discount ?? 0));
-        setReceivedAt(formatDateBR(order.receivedAt) || todayBR());
-        setDeadline(formatDateBR(order.deadline) || todayBR(7));
-
-        const loadedDevices = (order.appliances ?? []).map((item) => ({
-          key: `device-${item.id ?? Date.now()}`,
-          id: item.id,
-          appliance: item.type || "",
-          brand: item.brand || "",
-          model: item.model || "",
-          voltage: item.volt || "127V",
-          serial: item.series || "",
-          labor: item.laborValue ?? 0,
-        }));
-        const nextDevices = loadedDevices.length ? loadedDevices : [emptyDevice()];
-        setDevices(nextDevices);
-        setCollapsedDevices(Object.fromEntries(nextDevices.map((device) => [device.key, true])));
-
-        const quantityByComponent = Object.fromEntries(
-          (demands ?? []).map((demand) => [String(demand.componentId), demand.quantity]),
-        );
-        setParts(
-          (order.parts ?? []).map((part) => ({
-            key: `part-${part.id}`,
-            componentId: part.id,
-            name: part.item || part.description || "",
-            quantity: Number(quantityByComponent[String(part.id)] ?? 1),
-            price: part.price ?? 0,
-          })),
-        );
-      } catch (error) {
-        if (active) setFeedback(getErrorMessage(error));
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    loadOrder();
-    return () => {
-      active = false;
-    };
-  }, [edit, orderId]);
+    const quantityByComponent = Object.fromEntries(
+      (demandsQuery.data ?? []).map((demand) => [String(demand.componentId), demand.quantity]),
+    );
+    setParts(
+      (order.parts ?? []).map((part) => ({
+        key: `part-${part.id}`,
+        componentId: part.id,
+        name: part.item || part.description || "",
+        quantity: Number(quantityByComponent[String(part.id)] ?? 1),
+        price: part.price ?? 0,
+      })),
+    );
+  }
 
   function updateDevice(key, field, value) {
     setDevices((current) => current.map((device) => (device.key === key ? { ...device, [field]: value } : device)));
@@ -372,7 +337,7 @@ export default function OrderForm({ edit, orderId }) {
     setStep((current) => Math.min(current + 1, STEP_COUNT - 1));
   }
 
-  async function handleSave() {
+  function handleSave() {
     if (saving) return;
     if (!selectedClient?.id) {
       setFeedback("Selecione um cliente da lista.");
@@ -391,10 +356,8 @@ export default function OrderForm({ edit, orderId }) {
         quantity: Number(part.quantity) || 1,
       }));
 
-    setSaving(true);
-    try {
-      if (edit) {
-        await orderService.update(orderId, {
+    const payload = edit
+      ? {
           status: ORDER_STATUS_API[status] || "PENDING",
           appliances: validDevices.map((device) => ({
             id: device.id,
@@ -408,9 +371,8 @@ export default function OrderForm({ edit, orderId }) {
           parts: partsPayload,
           customerDescription: note,
           technicalDescription: technicalNote,
-        });
-      } else {
-        await orderService.create({
+        }
+      : {
           userId: selectedClient.id,
           appliances: validDevices.map((device) => ({
             type: device.appliance,
@@ -429,27 +391,31 @@ export default function OrderForm({ edit, orderId }) {
           status: "PENDING",
           returnGuarantee: Boolean(warranty),
           fabricGuarantee: false,
-        });
-      }
-      router.replace("/orders");
-    } catch (error) {
-      setFeedback(getErrorMessage(error));
-    } finally {
-      setSaving(false);
-    }
+        };
+
+    saveOrder.mutate(
+      { orderId: edit ? orderId : null, payload },
+      {
+        onSuccess: () => router.replace("/orders"),
+        onError: (error) => setFeedback(getErrorMessage(error)),
+      },
+    );
   }
 
-  async function setCompleted(next) {
+  function setCompleted(next) {
     const previous = status;
     const nextStatus = next ? "Concluído" : "Pendente";
     setStatus(nextStatus);
     if (!edit || !orderId) return;
-    try {
-      await orderService.update(orderId, { status: ORDER_STATUS_API[nextStatus] });
-    } catch (error) {
-      setStatus(previous);
-      setFeedback(getErrorMessage(error));
-    }
+    updateStatus.mutate(
+      { orderId, status: ORDER_STATUS_API[nextStatus] },
+      {
+        onError: (error) => {
+          setStatus(previous);
+          setFeedback(getErrorMessage(error));
+        },
+      },
+    );
   }
 
   const completed = status === "Concluído" || status === "Entregue";
@@ -694,6 +660,13 @@ export default function OrderForm({ edit, orderId }) {
           <ActivityIndicator color="#ef7f19" />
           <Text style={styles.loadingText}>Carregando ordem...</Text>
         </View>
+      ) : loadError ? (
+        <View style={styles.loadingBox}>
+          <Text style={styles.errorText}>{loadError}</Text>
+          <Pressable onPress={() => orderQuery.refetch()} style={styles.retry}>
+            <Text style={styles.retryText}>Tentar novamente</Text>
+          </Pressable>
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.content}
@@ -748,7 +721,7 @@ export default function OrderForm({ edit, orderId }) {
         </Pressable>
       </View>
       <SearchSheet
-        emptyText="Nenhum cliente encontrado."
+        emptyText={customersQuery.isError ? getErrorMessage(customersQuery.error) : "Nenhum cliente encontrado."}
         onChangeQuery={setClientQuery}
         onClose={() => setClientSheetOpen(false)}
         onSelect={selectClient}
@@ -759,7 +732,7 @@ export default function OrderForm({ edit, orderId }) {
         visible={clientSheetOpen}
       />
       <SearchSheet
-        emptyText="Nenhum componente encontrado."
+        emptyText={componentsQuery.isError ? getErrorMessage(componentsQuery.error) : "Nenhum componente encontrado."}
         onChangeQuery={setPartQuery}
         onClose={() => {
           setPartSheetOpen(false);
@@ -780,6 +753,9 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 28 },
   loadingBox: { alignItems: "center", flex: 1, justifyContent: "center" },
   loadingText: { color: "#667994", fontSize: 15, marginTop: 12 },
+  errorText: { color: "#d71929", fontSize: 15, paddingHorizontal: 24, textAlign: "center" },
+  retry: { marginTop: 12, padding: 10 },
+  retryText: { color: "#ef7f19", fontSize: 15, fontWeight: "700" },
   toast: {
     alignSelf: "center",
     backgroundColor: "#092542",

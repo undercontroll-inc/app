@@ -1,14 +1,15 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppShell from "../../../components/AppShell";
 import AppHeader from "../../../components/AppHeader";
 import OrderCard from "../../../components/OrderCard";
 import SearchField from "../../../components/SearchField";
 import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
+import { useDeleteOrder, useOrders, useUpdateOrderStatus } from "../../../hooks/queries/useOrders";
+import useRefreshOnFocus from "../../../hooks/useRefreshOnFocus";
 import { getErrorMessage } from "../../../providers/api";
-import { orderService } from "../../../services/OrderService";
 import { ORDER_STATUS_API, toOrderCard } from "../../../utils/orders";
 
 const filters = ["Todos", "Pendentes", "Em análise", "Concluídos"];
@@ -17,29 +18,17 @@ export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("Todos");
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   const menu = useActionMenu();
+  const ordersQuery = useOrders();
+  const updateStatus = useUpdateOrderStatus();
+  const deleteOrderMutation = useDeleteOrder();
+  const { refetch } = ordersQuery;
+  useRefreshOnFocus(refetch);
 
-  const loadOrders = useCallback(async () => {
-    try {
-      setError("");
-      const response = await orderService.list({ page: 0, size: 50 });
-      setOrders((response.data ?? []).map(toOrderCard));
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      loadOrders();
-    }, [loadOrders]),
-  );
+  const orders = useMemo(() => (ordersQuery.data ?? []).map(toOrderCard), [ordersQuery.data]);
+  const loading = ordersQuery.isPending;
+  const error = ordersQuery.isError ? getErrorMessage(ordersQuery.error) : "";
 
   const visibleOrders = useMemo(
     () =>
@@ -87,25 +76,17 @@ export default function OrdersScreen() {
     });
   }
 
-  async function setOrderCompleted(order, completed) {
-    const nextStatus = completed ? "Concluído" : "Pendente";
-    const previous = order.status;
-    setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: nextStatus } : item)));
-    try {
-      await orderService.update(order.id, { status: ORDER_STATUS_API[nextStatus] });
-    } catch (err) {
-      setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: previous } : item)));
-      setError(getErrorMessage(err));
-    }
+  function setOrderCompleted(order, completed) {
+    setActionError("");
+    updateStatus.mutate(
+      { orderId: order.id, status: ORDER_STATUS_API[completed ? "Concluído" : "Pendente"] },
+      { onError: (err) => setActionError(getErrorMessage(err)) },
+    );
   }
 
-  async function deleteOrder(order) {
-    try {
-      await orderService.remove(order.id);
-      setOrders((current) => current.filter((item) => item.id !== order.id));
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
+  function deleteOrder(order) {
+    setActionError("");
+    deleteOrderMutation.mutate(order.id, { onError: (err) => setActionError(getErrorMessage(err)) });
   }
 
   function renderEmpty() {
@@ -121,7 +102,7 @@ export default function OrdersScreen() {
       return (
         <View style={styles.state}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={loadOrders} style={styles.retry}>
+          <Pressable onPress={() => refetch()} style={styles.retry}>
             <Text style={styles.retryText}>Tentar novamente</Text>
           </Pressable>
         </View>
@@ -138,6 +119,7 @@ export default function OrdersScreen() {
           <View>
             <Text style={styles.title}>Ordens de Serviço</Text>
             <SearchField onChangeText={setSearch} placeholder="OS ou cliente" value={search} />
+            {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters}>
               {filters.map((item) => (
                 <Pressable
@@ -209,6 +191,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   state: { alignItems: "center", paddingVertical: 32 },
   stateText: { color: "#667994", fontSize: 15, marginTop: 12 },
+  actionError: { color: "#d71929", fontSize: 14, marginTop: 8 },
   errorText: { color: "#d71929", fontSize: 15, textAlign: "center" },
   retry: { marginTop: 12, padding: 10 },
   retryText: { color: "#ef7f19", fontSize: 15, fontWeight: "700" },

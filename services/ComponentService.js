@@ -1,8 +1,9 @@
 import { apiClient } from "../providers/api";
 
 class ComponentService {
-  async list({ category, name } = {}) {
+  async list({ category, name, signal } = {}) {
     const response = await apiClient.get("/components", {
+      signal,
       params: {
         ...(category ? { category } : {}),
         ...(name ? { name } : {}),
@@ -11,8 +12,8 @@ class ComponentService {
     return response.data ?? [];
   }
 
-  async getById(componentId) {
-    const response = await apiClient.get(`/components/${componentId}`);
+  async getById(componentId, { signal } = {}) {
+    const response = await apiClient.get(`/components/${componentId}`, { signal });
     return response.data;
   }
 

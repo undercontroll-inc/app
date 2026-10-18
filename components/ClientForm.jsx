@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,8 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarVisibility } from "../contexts/TabBarVisibilityContext";
 import AppShell from "./AppShell";
 import ScreenHeader from "./ScreenHeader";
+import { useCustomer, useSaveCustomer } from "../hooks/queries/useCustomers";
 import { getErrorMessage } from "../providers/api";
-import { userService } from "../services/UserService";
 import { bottomDockPadding } from "../utils/layout";
 
 const emptyForm = {
@@ -31,13 +31,31 @@ const emptyForm = {
   hasWhatsApp: false,
 };
 
+function toForm(client) {
+  return Object.fromEntries(
+    Object.entries(emptyForm).map(([field, fallback]) => [
+      field,
+      field === "number" ? "" : (client?.[field] ?? fallback),
+    ]),
+  );
+}
+
 export default function ClientForm({ edit = false, clientId }) {
   const insets = useSafeAreaInsets();
   const { setHidden } = useTabBarVisibility();
   const [form, setForm] = useState(emptyForm);
-  const [loading, setLoading] = useState(edit);
-  const [saving, setSaving] = useState(false);
+  const [hydrated, setHydrated] = useState(!edit);
   const [feedback, setFeedback] = useState("");
+  const customerQuery = useCustomer(clientId, { enabled: edit });
+  const saveCustomer = useSaveCustomer();
+  const saving = saveCustomer.isPending;
+  const loading = edit && customerQuery.isPending;
+  const loadError = edit && customerQuery.isError ? getErrorMessage(customerQuery.error) : "";
+
+  if (!hydrated && customerQuery.data) {
+    setHydrated(true);
+    setForm(toForm(customerQuery.data));
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -46,34 +64,12 @@ export default function ClientForm({ edit = false, clientId }) {
     }, [setHidden]),
   );
 
-  useEffect(() => {
-    let active = true;
-    if (!edit) return undefined;
-
-    async function loadClient() {
-      try {
-        const client = await userService.getById(clientId);
-        if (!active) return;
-        setForm({ ...emptyForm, ...client, number: "" });
-      } catch (err) {
-        if (active) setFeedback(getErrorMessage(err));
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    loadClient();
-    return () => {
-      active = false;
-    };
-  }, [clientId, edit]);
-
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
     setFeedback("");
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
     if (!form.name.trim() || !form.lastName.trim() || !form.phone.trim()) {
       setFeedback("Preencha nome, sobrenome e telefone.");
       return;
@@ -91,21 +87,14 @@ export default function ClientForm({ edit = false, clientId }) {
       userType: "CUSTOMER",
     };
 
-    try {
-      setSaving(true);
-      setFeedback("");
-      if (edit) {
-        await userService.update(clientId, payload);
-        router.replace(`/clients/${clientId}`);
-      } else {
-        await userService.create(payload);
-        router.replace("/clients");
-      }
-    } catch (err) {
-      setFeedback(getErrorMessage(err));
-    } finally {
-      setSaving(false);
-    }
+    setFeedback("");
+    saveCustomer.mutate(
+      { customerId: edit ? clientId : null, payload },
+      {
+        onSuccess: () => router.replace(edit ? `/clients/${clientId}` : "/clients"),
+        onError: (err) => setFeedback(getErrorMessage(err)),
+      },
+    );
   }
 
   return (
@@ -214,7 +203,7 @@ export default function ClientForm({ edit = false, clientId }) {
                 placeholder="Rua, avenida ou logradouro"
               />
             </View>
-            {!!feedback && <Text style={styles.feedback}>{feedback}</Text>}
+            {!!(feedback || loadError) && <Text style={styles.feedback}>{feedback || loadError}</Text>}
           </ScrollView>
         )}
         <View style={[styles.footer, { paddingBottom: bottomDockPadding(insets) }]}>

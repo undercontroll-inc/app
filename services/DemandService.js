@@ -1,8 +1,9 @@
 import { apiClient } from "../providers/api";
 
 class DemandService {
-  async list(orderId, { componentId } = {}) {
+  async list(orderId, { componentId, signal } = {}) {
     const response = await apiClient.get(`/orders/${orderId}/demands`, {
+      signal,
       params: componentId != null ? { componentId } : undefined,
     });
     return response.data ?? [];

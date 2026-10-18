@@ -1,13 +1,13 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import AppShell from "../../../../components/AppShell";
 import ScreenHeader from "../../../../components/ScreenHeader";
 import { useTabBarVisibility } from "../../../../contexts/TabBarVisibilityContext";
+import { useCustomer } from "../../../../hooks/queries/useCustomers";
+import { useOrders } from "../../../../hooks/queries/useOrders";
 import { getErrorMessage } from "../../../../providers/api";
-import { orderService } from "../../../../services/OrderService";
-import { userService } from "../../../../services/UserService";
 import { telUrl, whatsappUrl } from "../../../../utils/contact";
 import { formatAppliance, formatDateBR, formatUserName, ORDER_STATUS_LABEL } from "../../../../utils/orders";
 
@@ -22,13 +22,6 @@ function getStatusColor(status) {
 export default function ClientDetailScreen() {
   const { id } = useLocalSearchParams();
   const { setHidden } = useTabBarVisibility();
-  const [client, setClient] = useState(null);
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [historyLoading, setHistoryLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [historyError, setHistoryError] = useState("");
-
   useFocusEffect(
     useCallback(() => {
       setHidden(true);
@@ -36,41 +29,20 @@ export default function ClientDetailScreen() {
     }, [setHidden]),
   );
 
-  const load = useCallback(async () => {
-    if (!id) return;
-    setLoading(true);
-    setHistoryLoading(true);
-    setError("");
-    setHistoryError("");
-    try {
-      const data = await userService.getById(id);
-      setClient(data);
-    } catch (err) {
-      setError(getErrorMessage(err));
-      setLoading(false);
-      setHistoryLoading(false);
-      return;
-    }
-    setLoading(false);
-    try {
-      const response = await orderService.list({ userId: id, page: 0, size: 50 });
-      setOrders(
-        (response.data ?? []).map((order) => ({
-          ...order,
-          status: ORDER_STATUS_LABEL[order.status] || order.status,
-        })),
-      );
-    } catch (err) {
-      setHistoryError(getErrorMessage(err));
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [id]);
-
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
+  const customerQuery = useCustomer(id);
+  const ordersQuery = useOrders({ userId: id, enabled: customerQuery.isSuccess });
+  const client = customerQuery.data ?? null;
+  const loading = customerQuery.isPending;
+  const error = customerQuery.isError ? getErrorMessage(customerQuery.error) : "";
+  const historyLoading = ordersQuery.isPending;
+  const historyError = ordersQuery.isError ? getErrorMessage(ordersQuery.error) : "";
+  const orders = useMemo(
+    () =>
+      (ordersQuery.data ?? []).map((order) => ({
+        ...order,
+        status: ORDER_STATUS_LABEL[order.status] || order.status,
+      })),
+    [ordersQuery.data],
   );
 
   const callUrl = telUrl(client?.phone);
@@ -96,7 +68,7 @@ export default function ClientDetailScreen() {
       ) : error ? (
         <View style={styles.state}>
           <Text style={styles.error}>{error}</Text>
-          <Pressable onPress={load} style={styles.retry}>
+          <Pressable onPress={() => customerQuery.refetch()} style={styles.retry}>
             <Text style={styles.retryText}>Tentar novamente</Text>
           </Pressable>
         </View>

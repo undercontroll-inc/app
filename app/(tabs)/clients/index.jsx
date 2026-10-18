@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,55 +10,38 @@ import {
   Text,
   View,
 } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader from "../../../components/AppHeader";
 import AppShell from "../../../components/AppShell";
 import ClientCard from "../../../components/ClientCard";
 import SearchField from "../../../components/SearchField";
 import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
+import { useCustomers, useDeleteCustomer } from "../../../hooks/queries/useCustomers";
+import useRefreshOnFocus from "../../../hooks/useRefreshOnFocus";
 import { getErrorMessage } from "../../../providers/api";
-import { userService } from "../../../services/UserService";
 import { telUrl, whatsappUrl } from "../../../utils/contact";
 import { formatUserName } from "../../../utils/orders";
 
 export default function ClientsScreen() {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [pulling, setPulling] = useState(false);
   const menu = useActionMenu();
+  const customersQuery = useCustomers();
+  const deleteCustomer = useDeleteCustomer();
+  const { refetch } = customersQuery;
+  useRefreshOnFocus(refetch);
 
-  const loadClients = useCallback(async () => {
-    try {
-      setError("");
-      setClients(await userService.getCustomers());
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      loadClients();
-    }, [loadClients]),
-  );
+  const clients = useMemo(() => customersQuery.data ?? [], [customersQuery.data]);
+  const loading = customersQuery.isPending;
+  const error = customersQuery.isError ? getErrorMessage(customersQuery.error) : "";
 
   async function onRefresh() {
-    setRefreshing(true);
-    try {
-      setError("");
-      setClients(await userService.getCustomers());
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setRefreshing(false);
-    }
+    setPulling(true);
+    await refetch();
+    setPulling(false);
   }
 
   const visibleClients = useMemo(() => {
@@ -75,7 +58,7 @@ export default function ClientsScreen() {
   function openContact(url) {
     if (!url) return;
     Linking.openURL(url).catch(() => {
-      setError("Não foi possível abrir o aplicativo.");
+      setActionError("Não foi possível abrir o aplicativo.");
     });
   }
 
@@ -105,13 +88,9 @@ export default function ClientsScreen() {
     });
   }
 
-  async function deleteClient(client) {
-    try {
-      await userService.remove(client.id);
-      setClients((current) => current.filter((item) => item.id !== client.id));
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
+  function deleteClient(client) {
+    setActionError("");
+    deleteCustomer.mutate(client.id, { onError: (err) => setActionError(getErrorMessage(err)) });
   }
 
   function renderEmpty() {
@@ -127,7 +106,7 @@ export default function ClientsScreen() {
       return (
         <View style={styles.state}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={loadClients} style={styles.retry}>
+          <Pressable onPress={() => refetch()} style={styles.retry}>
             <Text style={styles.retryText}>Tentar novamente</Text>
           </Pressable>
         </View>
@@ -144,6 +123,7 @@ export default function ClientsScreen() {
           <View style={styles.listHeader}>
             <Text style={styles.title}>Clientes</Text>
             <SearchField onChangeText={setSearch} placeholder="Nome, CPF ou telefone" value={search} />
+            {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
           </View>
         }
         contentContainerStyle={styles.content}
@@ -151,7 +131,7 @@ export default function ClientsScreen() {
         keyExtractor={(client) => String(client.id)}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={renderEmpty}
-        refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={refreshing} tintColor="#ef7f19" />}
+        refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={pulling} tintColor="#ef7f19" />}
         renderItem={({ item }) => (
           <ClientCard
             client={item}
@@ -194,6 +174,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   state: { alignItems: "center", paddingVertical: 32 },
   stateText: { color: "#667994", fontSize: 15, marginTop: 12 },
+  actionError: { color: "#d71929", fontSize: 14, marginTop: 8 },
   errorText: { color: "#d71929", fontSize: 15, textAlign: "center" },
   retry: { marginTop: 12, padding: 10 },
   retryText: { color: "#ef7f19", fontSize: 15, fontWeight: "700" },
