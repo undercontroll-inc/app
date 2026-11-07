@@ -1,11 +1,8 @@
 import { useState } from "react";
-import { StyleSheet } from "react-native";
 import { router } from "expo-router";
 import Button from "./ui/Button";
-import Field from "./ui/Field";
-import FormCard, { FieldRow } from "./ui/FormCard";
 import FormScreen from "./ui/FormScreen";
-import SwitchRow from "./ui/SwitchRow";
+import { FormSection, FormSwitchRow, FormTextRow } from "./ui/FormRows";
 import { useCustomer, useSaveCustomer } from "../hooks/queries/useCustomers";
 import { getErrorMessage } from "../providers/api";
 import { haptics } from "../utils/haptics";
@@ -102,28 +99,25 @@ export default function ClientForm({ edit = false, clientId }) {
       onCancel={() => router.back()}
       onRetry={customerQuery.refetch}
     >
-      <FormCard title="Contato">
-        <FieldRow>
-          <Field
-            autoComplete="given-name"
-            label="Nome"
-            onChangeText={(value) => updateField("name", value)}
-            placeholder="Nome"
-            style={styles.flex}
-            textContentType="givenName"
-            value={form.name}
-          />
-          <Field
-            autoComplete="family-name"
-            label="Sobrenome"
-            onChangeText={(value) => updateField("lastName", value)}
-            placeholder="Sobrenome"
-            style={styles.flex}
-            textContentType="familyName"
-            value={form.lastName}
-          />
-        </FieldRow>
-        <Field
+      <FormSection title="Contato">
+        <FormTextRow
+          autoComplete="given-name"
+          autoFocus={!edit}
+          label="Nome"
+          onChangeText={(value) => updateField("name", value)}
+          placeholder="Nome"
+          textContentType="givenName"
+          value={form.name}
+        />
+        <FormTextRow
+          autoComplete="family-name"
+          label="Sobrenome"
+          onChangeText={(value) => updateField("lastName", value)}
+          placeholder="Sobrenome"
+          textContentType="familyName"
+          value={form.lastName}
+        />
+        <FormTextRow
           autoComplete="tel"
           keyboardType="phone-pad"
           label="Telefone"
@@ -132,63 +126,56 @@ export default function ClientForm({ edit = false, clientId }) {
           textContentType="telephoneNumber"
           value={form.phone}
         />
-        <SwitchRow
+        <FormSwitchRow
           description="Mostra o atalho para conversar pelo WhatsApp"
           label="Possui WhatsApp"
           onValueChange={(value) => updateField("hasWhatsApp", value)}
           value={form.hasWhatsApp}
         />
-        <Field
+      </FormSection>
+      <FormSection footer="Opcional" title="Documentos e e-mail">
+        <FormTextRow
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
-          label="E-mail (opcional)"
+          label="E-mail"
           onChangeText={(value) => updateField("email", value)}
           placeholder="cliente@email.com"
           textContentType="emailAddress"
           value={form.email}
         />
-        <Field
+        <FormTextRow
           keyboardType="number-pad"
-          label="CPF (opcional)"
+          label="CPF"
           onChangeText={(value) => updateField("cpf", value)}
           placeholder="000.000.000-00"
           value={form.cpf}
         />
-      </FormCard>
-      <FormCard title="Endereço" subtitle="Opcional">
-        <FieldRow>
-          <Field
-            keyboardType="number-pad"
-            label="CEP"
-            onChangeText={(value) => updateField("CEP", value)}
-            placeholder="00000-000"
-            style={styles.flex}
-            textContentType="postalCode"
-            value={form.CEP}
-          />
-          <Field
-            keyboardType="number-pad"
-            label="Número"
-            onChangeText={(value) => updateField("number", value)}
-            placeholder="Nº"
-            style={styles.number}
-            value={form.number}
-          />
-        </FieldRow>
-        <Field
+      </FormSection>
+      <FormSection footer="Opcional" title="Endereço">
+        <FormTextRow
+          keyboardType="number-pad"
+          label="CEP"
+          onChangeText={(value) => updateField("CEP", value)}
+          placeholder="00000-000"
+          textContentType="postalCode"
+          value={form.CEP}
+        />
+        <FormTextRow
           label="Rua"
           onChangeText={(value) => updateField("address", value)}
-          placeholder="Rua, avenida ou logradouro"
+          placeholder="Rua ou avenida"
           textContentType="fullStreetAddress"
           value={form.address}
         />
-      </FormCard>
+        <FormTextRow
+          keyboardType="number-pad"
+          label="Número"
+          onChangeText={(value) => updateField("number", value)}
+          placeholder="Nº"
+          value={form.number}
+        />
+      </FormSection>
     </FormScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  number: { flex: 0.6 },
-});

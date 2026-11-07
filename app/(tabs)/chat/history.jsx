@@ -6,8 +6,6 @@ import SearchField from "../../../components/SearchField";
 import ConversationRow from "../../../components/chat/ConversationRow";
 import { openConversation } from "../../../components/chat/navigation";
 import Banner from "../../../components/ui/Banner";
-import Field from "../../../components/ui/Field";
-import Sheet from "../../../components/ui/Sheet";
 import StateView from "../../../components/ui/StateView";
 import SwipeRow from "../../../components/ui/SwipeRow";
 import Text from "../../../components/ui/Text";
@@ -15,14 +13,12 @@ import {
   useConversations,
   useDeleteConversation,
   usePrefetchConversation,
-  useRenameConversation,
 } from "../../../hooks/queries/useChatHistory";
+import useRenameConversationPrompt from "../../../components/chat/useRenameConversationPrompt";
 import { getErrorMessage } from "../../../providers/api";
 import { groupConversations } from "../../../utils/chat";
 import { haptics } from "../../../utils/haptics";
 import { colors, radius } from "../../../theme";
-
-const TITLE_MAX = 120;
 
 function matches(conversation, text) {
   if (!text) return true;
@@ -32,11 +28,10 @@ function matches(conversation, text) {
 export default function ConversationHistoryScreen() {
   const [search, setSearch] = useState("");
   const [pulling, setPulling] = useState(false);
-  const [renaming, setRenaming] = useState(null);
   const [actionError, setActionError] = useState("");
   const query = useConversations();
   const prefetch = usePrefetchConversation();
-  const rename = useRenameConversation();
+  const renamePrompt = useRenameConversationPrompt({ onError: setActionError });
   const remove = useDeleteConversation();
   const menu = useActionMenu();
   const { refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = query;
@@ -52,41 +47,7 @@ export default function ConversationHistoryScreen() {
     setPulling(false);
   }, [refetch]);
 
-  const submitRename = useCallback(
-    (conversation, title) => {
-      const clean = String(title ?? "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, TITLE_MAX);
-      if (!clean || clean === conversation.title) return;
-      setActionError("");
-      rename.mutate(
-        { conversationId: conversation.conversationId, title: clean },
-        { onError: (error) => setActionError(getErrorMessage(error)) },
-      );
-    },
-    [rename],
-  );
-
-  const askRename = useCallback(
-    (conversation) => {
-      if (Platform.OS === "ios") {
-        Alert.prompt(
-          "Renomear conversa",
-          undefined,
-          [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Salvar", onPress: (value) => submitRename(conversation, value) },
-          ],
-          "plain-text",
-          conversation.title,
-        );
-        return;
-      }
-      setRenaming({ conversation, title: conversation.title });
-    },
-    [submitRename],
-  );
+  const askRename = renamePrompt.ask;
 
   const askDelete = useCallback(
     (conversation) => {
@@ -144,14 +105,16 @@ export default function ConversationHistoryScreen() {
           ]}
           clipStyle={[styles.square, first && styles.first, last && styles.last]}
           flat
+          onPress={() => openConversation(item.conversation)}
+          onPressIn={() => prefetch(item.conversation.conversationId)}
         >
           <View style={[styles.rowSurface, first && styles.first, last && styles.last]}>
             <ConversationRow
               conversation={item.conversation}
               last={last}
               onLongPress={Platform.OS === "ios" ? undefined : openMenu}
-              onPress={openConversation}
-              onPressIn={(conversation) => prefetch(conversation.conversationId)}
+              onPress={Platform.OS === "ios" ? undefined : openConversation}
+              onPressIn={Platform.OS === "ios" ? undefined : (conversation) => prefetch(conversation.conversationId)}
             />
           </View>
         </SwipeRow>
@@ -202,26 +165,7 @@ export default function ConversationHistoryScreen() {
         renderItem={renderItem}
       />
       <ActionMenuSheet config={menu.config} onClose={menu.close} />
-      <Sheet
-        confirmDisabled={!renaming?.title?.trim()}
-        confirmLabel="Salvar"
-        onClose={() => setRenaming(null)}
-        onConfirm={() => {
-          submitRename(renaming.conversation, renaming.title);
-          setRenaming(null);
-        }}
-        title="Renomear conversa"
-        visible={Boolean(renaming)}
-      >
-        <View style={styles.sheetBody}>
-          <Field
-            autoFocus
-            maxLength={TITLE_MAX}
-            onChangeText={(title) => setRenaming((current) => ({ ...current, title }))}
-            value={renaming?.title ?? ""}
-          />
-        </View>
-      </Sheet>
+      {renamePrompt.sheet}
     </View>
   );
 }
@@ -236,5 +180,4 @@ const styles = StyleSheet.create({
   first: { borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card },
   last: { borderBottomLeftRadius: radius.card, borderBottomRightRadius: radius.card },
   footer: { marginVertical: 16 },
-  sheetBody: { padding: 20 },
 });

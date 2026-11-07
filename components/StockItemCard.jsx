@@ -33,7 +33,7 @@ function StockItemCard({ item, onPress, onLongPress, onEdit, onDelete }) {
       }
       accessibilityLabel={`${item.item}, ${status.label}, ${formatCurrency(item.price)}`}
       onLongPress={Platform.OS === "ios" ? undefined : () => onLongPress(item)}
-      onPress={() => onPress(item)}
+      onPress={Platform.OS === "ios" ? undefined : () => onPress(item)}
       style={styles.card}
     >
       <View style={styles.top}>
@@ -67,6 +67,7 @@ function StockItemCard({ item, onPress, onLongPress, onEdit, onDelete }) {
         { label: "Editar", icon: "edit", color: colors.orange, onPress: () => onEdit(item) },
         { label: "Excluir", icon: "trash", color: colors.danger, onPress: () => onDelete(item) },
       ]}
+      onPress={() => onPress(item)}
       style={styles.wrap}
     >
       {card}

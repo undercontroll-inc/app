@@ -1,35 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Linking, Platform } from "react-native";
-import {
-  RecordingPresets,
-  requestRecordingPermissionsAsync,
-  setAudioModeAsync,
-  useAudioRecorder,
-  useAudioRecorderState,
-} from "expo-audio";
+import { Alert, Platform } from "react-native";
+import { setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { getErrorMessage } from "../providers/api";
 import { deleteRecordingFile, transcriptionErrorMessage, transcriptionService } from "../services/TranscriptionService";
+import {
+  MAX_RECORDING_SECONDS,
+  RECORDING_OPTIONS,
+  prepareRecording,
+  showMicPermissionAlert,
+} from "../utils/audioRecording";
 
-export const MAX_RECORDING_SECONDS = 60;
-
-const RECORDING_OPTIONS = {
-  ...RecordingPresets.HIGH_QUALITY,
-  isMeteringEnabled: true,
-};
+export { MAX_RECORDING_SECONDS };
 
 function afterPaint() {
   return new Promise((resolve) => setTimeout(resolve, 50));
 }
 
 function showPermissionAlert() {
-  Alert.alert(
-    "Microfone bloqueado",
-    "A transcrição precisa do microfone. Ative a permissão nos Ajustes para gravar observações.",
-    [
-      { text: "Agora não", style: "cancel" },
-      { text: "Abrir Ajustes", onPress: () => Linking.openSettings() },
-    ],
-  );
+  showMicPermissionAlert("A transcrição precisa do microfone. Ative a permissão nos Ajustes para gravar observações.");
 }
 
 export default function useVoiceNote({ onApply, persist, onWarning } = {}) {
@@ -110,23 +98,17 @@ export default function useVoiceNote({ onApply, persist, onWarning } = {}) {
   const beginRecording = useCallback(
     async (field) => {
       setErrorMessage("");
-      const permission = await requestRecordingPermissionsAsync();
-      if (!permission.granted) {
-        showPermissionAlert();
-        return;
-      }
-
       try {
         seenRecording.current = false;
         stopping.current = false;
         setActiveField(field);
         setStatus("recording");
-        await setAudioModeAsync({
-          allowsRecording: true,
-          interruptionMode: "doNotMix",
-          playsInSilentMode: true,
-        });
-        await recorder.prepareToRecordAsync(RECORDING_OPTIONS);
+        const ready = await prepareRecording(recorder);
+        if (!ready) {
+          setStatus("ready");
+          showPermissionAlert();
+          return;
+        }
         recorder.record({ forDuration: MAX_RECORDING_SECONDS });
       } catch (error) {
         setActiveField(field);

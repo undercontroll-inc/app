@@ -18,9 +18,9 @@ import SearchSheet from "./SearchSheet";
 import Button from "./ui/Button";
 import FormScreen from "./ui/FormScreen";
 import StepIndicator from "./ui/StepIndicator";
-import SwitchRow from "./ui/SwitchRow";
+import { FormSection, FormSwitchRow } from "./ui/FormRows";
 import Text from "./ui/Text";
-import { colors, radius, shadowStrong } from "../theme";
+import { colors, shadowStrong } from "../theme";
 import OrderCustomerSection from "./order/OrderCustomerSection";
 import OrderDevicesSection from "./order/OrderDevicesSection";
 import OrderNotesSection from "./order/OrderNotesSection";
@@ -219,14 +219,17 @@ export default function OrderForm({ edit, orderId }) {
       >
         {!edit ? <StepIndicator step={step} steps={STEPS} /> : null}
         {edit ? (
-          <View style={styles.completeCard}>
-            <SwitchRow
-              description="Ative quando o conserto estiver pronto"
+          <FormSection title="Status">
+            <FormSwitchRow
+              description={
+                isOrderCompleted(form.status) ? "Conserto finalizado" : "Ative quando o conserto estiver pronto"
+              }
               label="OS concluída"
               onValueChange={setCompleted}
+              testID="order-completed"
               value={isOrderCompleted(form.status)}
             />
-          </View>
+          </FormSection>
         ) : null}
         {showIntake ? (
           <>
@@ -298,12 +301,6 @@ const styles = StyleSheet.create({
   footerRow: { flexDirection: "row", gap: 10 },
   back: { flex: 0.8 },
   primary: { flex: 1.2 },
-  completeCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
   toast: {
     ...shadowStrong,
     alignSelf: "center",

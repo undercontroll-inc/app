@@ -131,6 +131,11 @@ export default function useAnaChat(conversationId, { isNew = false, initialPromp
               if (serverId != null && userId) update(userId, (message) => ({ ...message, serverId }));
               return;
             }
+            if (event.event === "status") {
+              const phase = event.data?.phase;
+              if (phase) update(assistantId, (message) => (message.phase === phase ? message : { ...message, phase }));
+              return;
+            }
             if (event.event !== "done" && event.event !== "partial" && event.event !== "error") return;
             if (event.data?.content) answer = event.data.content;
             flush();
@@ -190,7 +195,7 @@ export default function useAnaChat(conversationId, { isNew = false, initialPromp
           prompt: item.prompt,
           content: "",
           status: "pending",
-          createdAt: item.createdAt,
+          createdAt: new Date().toISOString(),
         })),
       );
       runStream(message.prompt, message.id, null);

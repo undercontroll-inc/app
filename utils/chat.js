@@ -351,3 +351,41 @@ export function decorateMessages(messages = [], now = new Date()) {
     };
   });
 }
+
+const THINKING_TOPICS = [
+  {
+    pattern: /\b(os|o\.s\.?|ordens?|consertos?|reparos?|servi[cç]os?|pendentes?|atrasad)/i,
+    phrases: ["Consultando suas ordens de serviço", "Verificando os prazos dos consertos"],
+  },
+  {
+    pattern: /\b(estoque|pe[cç]as?|componentes?|itens?|fornecedor)/i,
+    phrases: ["Conferindo o estoque", "Olhando as peças disponíveis"],
+  },
+  {
+    pattern: /\b(clientes?|recorrentes?|contato)/i,
+    phrases: ["Buscando seus clientes", "Revendo o histórico de atendimentos"],
+  },
+  {
+    pattern: /\b(faturamento|faturei|receita|valor|valores|pre[cç]os?|ticket|lucro|custo|r\$)/i,
+    phrases: ["Calculando os valores", "Somando o faturamento"],
+  },
+  {
+    pattern: /\b(mercado|tend[eê]ncia|concorr|insights?)/i,
+    phrases: ["Analisando o mercado", "Comparando tendências"],
+  },
+];
+
+export function thinkingPhrases(prompt) {
+  const topical = THINKING_TOPICS.filter((topic) => topic.pattern.test(String(prompt ?? ""))).flatMap(
+    (topic) => topic.phrases,
+  );
+  const middle = topical.length ? topical.slice(0, 4) : ["Entendendo sua pergunta", "Reunindo as informações"];
+  return ["Pensando", ...middle, "Organizando a resposta"];
+}
+
+export function thinkingElapsedLabel(startedAt, now = Date.now()) {
+  const start = toDate(startedAt);
+  if (!start) return "";
+  const seconds = Math.max(0, Math.floor((now - start.getTime()) / 1000));
+  return seconds >= 3 ? `${seconds}s` : "";
+}
