@@ -7,6 +7,7 @@ export function createMessage({ role, content = "", status = "complete" }) {
     role,
     content,
     status,
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -135,12 +136,14 @@ export const CHAT_ERROR_MESSAGES = {
   CHAT_TIMEOUT: "A Ana demorou demais para responder. Tente novamente.",
   CHAT_UNAVAILABLE: "A Ana está indisponível no momento. Tente novamente em instantes.",
   CHAT_CONVERSATION_BUSY: "A Ana ainda está respondendo a mensagem anterior desta conversa. Aguarde um instante.",
+  CONVERSATION_NOT_FOUND: "Esta conversa foi excluída. Comece uma nova conversa.",
 };
 
 export const PARTIAL_REASON_MESSAGES = {
   max_tokens: "A resposta atingiu o limite de tamanho.",
   timeout: "A resposta foi interrompida por demora.",
   interrupted: "A resposta foi interrompida.",
+  canceled: "A resposta foi interrompida antes de terminar.",
 };
 
 export function partialNotice(reason) {
@@ -161,7 +164,7 @@ export function applyChatEvent(message, event) {
       if (!content) {
         return { ...message, status: "error", errorMessage: "Não recebi uma resposta.", retryable: true };
       }
-      return { ...message, content, status: "complete" };
+      return { ...message, content, status: "complete", serverId: data.messageId ?? message.serverId };
     }
     case "partial":
       return {
@@ -170,6 +173,7 @@ export function applyChatEvent(message, event) {
         status: "partial",
         reason: data.reason || "interrupted",
         retryable: data.retryable !== false,
+        serverId: data.messageId ?? message.serverId,
       };
     case "error":
       return {
@@ -201,4 +205,149 @@ export function replaceMessage(messages, id, updater) {
   const copy = messages.slice();
   copy[index] = next;
   return copy;
+}
+
+const TITLE_MAX = 60;
+const TITLE_MIN_CUT = 20;
+export const DEFAULT_CONVERSATION_TITLE = "Nova conversa";
+
+export function conversationTitle(text) {
+  const firstLine =
+    String(text ?? "")
+      .split(/\r?\n/)
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .find(Boolean) ?? "";
+  if (!firstLine) return DEFAULT_CONVERSATION_TITLE;
+  if (firstLine.length <= TITLE_MAX) return firstLine;
+  const slice = firstLine.slice(0, TITLE_MAX);
+  const lastSpace = slice.lastIndexOf(" ");
+  const cut = lastSpace >= TITLE_MIN_CUT ? slice.slice(0, lastSpace) : slice;
+  return `${cut.trimEnd()}…`;
+}
+
+export function messagePreview(text, max = 160) {
+  const clean = String(text ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
+}
+
+export function historyToMessages(items = []) {
+  return items.map((item) => ({
+    id: `srv-${item.id}`,
+    serverId: item.id,
+    role: item.role,
+    content: item.content ?? "",
+    status: item.state === "partial" ? "partial" : "complete",
+    reason: item.state === "partial" ? item.reason || "interrupted" : undefined,
+    retryable: false,
+    createdAt: item.createdAt,
+  }));
+}
+
+export function mergeMessages(history, live) {
+  if (!live.length) return history;
+  const liveKeys = new Map();
+  live.forEach((message) => {
+    if (message.serverId != null) liveKeys.set(message.serverId, message.id);
+  });
+  const known = new Set();
+  const stable = history.map((message) => {
+    known.add(message.serverId);
+    const key = liveKeys.get(message.serverId);
+    return key ? { ...message, id: key } : message;
+  });
+  const fresh = live.filter((message) => message.serverId == null || !known.has(message.serverId));
+  return fresh.length ? [...stable, ...fresh] : stable;
+}
+
+const WEEKDAYS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+const MONTHS = ["jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."];
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+function dayDiff(date, now) {
+  return Math.round((startOfDay(now) - startOfDay(date)) / DAY_MS);
+}
+
+function toDate(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function clock(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+export function formatConversationTime(value, now = new Date()) {
+  const date = toDate(value);
+  if (!date) return "";
+  const diff = dayDiff(date, now);
+  if (diff <= 0) return clock(date);
+  if (diff === 1) return "Ontem";
+  if (diff < 7) return WEEKDAYS[date.getDay()];
+  return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function formatMessageDay(value, now = new Date()) {
+  const date = toDate(value);
+  if (!date) return "";
+  const diff = dayDiff(date, now);
+  if (diff <= 0) return `Hoje ${clock(date)}`;
+  if (diff === 1) return `Ontem ${clock(date)}`;
+  if (diff < 7) return `${WEEKDAYS[date.getDay()]} ${clock(date)}`;
+  const year = date.getFullYear() !== now.getFullYear() ? ` de ${date.getFullYear()}` : "";
+  return `${date.getDate()} de ${MONTHS[date.getMonth()]}${year} ${clock(date)}`;
+}
+
+const SECTION_ORDER = ["Hoje", "Ontem", "Últimos 7 dias", "Este mês", "Mais antigas"];
+
+function sectionFor(date, now) {
+  const diff = dayDiff(date, now);
+  if (diff <= 0) return "Hoje";
+  if (diff === 1) return "Ontem";
+  if (diff < 7) return "Últimos 7 dias";
+  if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) return "Este mês";
+  return "Mais antigas";
+}
+
+export function groupConversations(conversations = [], now = new Date()) {
+  const rows = [];
+  let current = null;
+  conversations.forEach((conversation) => {
+    const date = toDate(conversation.lastMessageAt ?? conversation.createdAt) ?? now;
+    const section = sectionFor(date, now);
+    if (section !== current) {
+      current = section;
+      rows.push({ type: "header", key: `header-${section}`, title: section });
+    }
+    rows.push({ type: "item", key: conversation.conversationId, conversation });
+  });
+  return rows;
+}
+
+export const conversationSections = SECTION_ORDER;
+
+const GROUP_GAP_MS = 30 * 60 * 1000;
+const BUBBLE_GROUP_MS = 2 * 60 * 1000;
+
+export function decorateMessages(messages = [], now = new Date()) {
+  return messages.map((message, index) => {
+    const previous = messages[index - 1];
+    const next = messages[index + 1];
+    const date = toDate(message.createdAt);
+    const previousDate = previous ? toDate(previous.createdAt) : null;
+    const nextDate = next ? toDate(next.createdAt) : null;
+    const showDate =
+      !!date && (!previousDate || dayDiff(previousDate, date) !== 0 || date - previousDate > GROUP_GAP_MS);
+    const continues = !!next && next.role === message.role && (!date || !nextDate || nextDate - date < BUBBLE_GROUP_MS);
+    return {
+      ...message,
+      dateLabel: showDate ? formatMessageDay(date, now) : null,
+      groupedWithNext: continues,
+    };
+  });
 }

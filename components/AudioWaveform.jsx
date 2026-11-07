@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { colors } from "../theme";
 
 const BAR_COUNT = 36;
 
@@ -11,6 +13,22 @@ function levelFromDb(db) {
   if (typeof db !== "number" || Number.isNaN(db)) return 0.1;
   const clamped = Math.min(0, Math.max(-50, db));
   return 0.1 + ((clamped + 50) / 50) * 0.9;
+}
+
+function Bar({ level }) {
+  const height = useSharedValue(level);
+
+  useEffect(() => {
+    height.value = withTiming(level, { duration: 140 });
+  }, [height, level]);
+
+  const style = useAnimatedStyle(() => ({ height: `${Math.round(height.value * 100)}%` }));
+
+  return (
+    <View style={styles.barSlot}>
+      <Animated.View style={[styles.bar, style]} />
+    </View>
+  );
 }
 
 export default function AudioWaveform({ metering, active, tick }) {
@@ -25,9 +43,7 @@ export default function AudioWaveform({ metering, active, tick }) {
   return (
     <View accessibilityLabel="Nível do áudio" style={styles.track}>
       {levels.map((level, index) => (
-        <View key={index} style={styles.barSlot}>
-          <View style={[styles.bar, { height: `${Math.round(level * 100)}%` }]} />
-        </View>
+        <Bar key={index} level={level} />
       ))}
     </View>
   );
@@ -36,10 +52,10 @@ export default function AudioWaveform({ metering, active, tick }) {
 const styles = StyleSheet.create({
   track: {
     alignItems: "center",
-    backgroundColor: "#f4f7fb",
-    borderRadius: 10,
+    backgroundColor: colors.background,
+    borderRadius: 12,
     flexDirection: "row",
-    height: 56,
+    height: 72,
     justifyContent: "space-between",
     overflow: "hidden",
     paddingHorizontal: 10,
@@ -53,9 +69,9 @@ const styles = StyleSheet.create({
     maxWidth: 4,
   },
   bar: {
-    backgroundColor: "#ef7f19",
+    backgroundColor: colors.orange,
     borderRadius: 2,
     minHeight: 4,
-    width: 3,
+    width: 4,
   },
 });

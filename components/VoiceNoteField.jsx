@@ -1,6 +1,8 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import Feather from "@expo/vector-icons/Feather";
+import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import Icon from "./ui/Icon";
+import Text from "./ui/Text";
 import VoiceNoteSheet from "./VoiceNoteSheet";
+import { colors, MAX_FONT_SCALE, radius } from "../theme";
 
 export default function VoiceNoteField({ label, value, onChangeText, placeholder, field, voice }) {
   const state = voice.stateFor(field);
@@ -11,14 +13,17 @@ export default function VoiceNoteField({ label, value, onChangeText, placeholder
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text tone="muted" variant="subhead" weight="600">
+        {label}
+      </Text>
       <View style={styles.box}>
         <TextInput
           editable={!transcribing}
+          maxFontSizeMultiplier={MAX_FONT_SCALE}
           multiline
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#667994"
+          placeholderTextColor={colors.subtle}
           style={styles.input}
           textAlignVertical="top"
           value={value}
@@ -27,11 +32,14 @@ export default function VoiceNoteField({ label, value, onChangeText, placeholder
           <Pressable
             accessibilityLabel="Gravar áudio"
             disabled={state?.disabled}
-            hitSlop={6}
+            accessibilityRole="button"
             onPress={() => voice.start(field)}
             style={({ pressed }) => [styles.mic, state?.disabled && styles.micDisabled, pressed && styles.pressed]}
           >
-            <Feather color={state?.disabled ? "#9aaac0" : "#ef7f19"} name="mic" size={18} />
+            <Icon color={state?.disabled ? colors.subtle : colors.orange} name="mic" size={18} />
+            <Text tone={state?.disabled ? "subtle" : "accent"} variant="subhead" weight="700">
+              Gravar áudio
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -56,47 +64,38 @@ export default function VoiceNoteField({ label, value, onChangeText, placeholder
 }
 
 const styles = StyleSheet.create({
-  field: {
-    marginBottom: 18,
-  },
-  label: {
-    color: "#667994",
-    fontSize: 14,
-    marginBottom: 8,
-  },
+  field: { gap: 6 },
   box: {
-    backgroundColor: "#ffffff",
-    borderColor: "#dce4ee",
-    borderRadius: 11,
-    borderWidth: 2,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.control,
+    borderWidth: 1,
     overflow: "hidden",
   },
   input: {
-    color: "#092542",
-    fontSize: 15,
-    lineHeight: 22,
-    minHeight: 100,
+    color: colors.text,
+    fontSize: 17,
+    lineHeight: 24,
+    minHeight: 110,
+    paddingBottom: 8,
     paddingHorizontal: 14,
     paddingTop: 12,
-    paddingBottom: 8,
   },
   toolbar: {
     alignItems: "flex-end",
-    borderTopColor: "#eef2f6",
-    borderTopWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    borderTopColor: colors.hairline,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    padding: 6,
   },
   mic: {
     alignItems: "center",
-    height: 36,
-    justifyContent: "center",
-    width: 36,
+    backgroundColor: colors.orangeSoft,
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 14,
   },
-  micDisabled: {
-    opacity: 0.55,
-  },
-  pressed: {
-    opacity: 0.72,
-  },
+  micDisabled: { backgroundColor: colors.surfaceMuted },
+  pressed: { opacity: 0.72 },
 });

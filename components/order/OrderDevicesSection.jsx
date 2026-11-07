@@ -1,5 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import Feather from "@expo/vector-icons/Feather";
+import { Pressable, StyleSheet, View } from "react-native";
+import Icon from "../ui/Icon";
+import Text from "../ui/Text";
+import { colors, radius } from "../../theme";
 import NativeSelect from "../NativeSelect";
 import { deviceSummary } from "../../utils/orderForm";
 import { formatCurrency } from "../../utils/orders";
@@ -13,17 +15,23 @@ export default function OrderDevicesSection({ devices, collapsed, laborTotal, on
         return (
           <View key={device.key} style={styles.deviceCard}>
             <View style={styles.deviceHeading}>
-              <Pressable onPress={() => onToggle(device.key)} style={styles.deviceToggle}>
-                <Text style={styles.deviceTitle}>{deviceSummary(device)}</Text>
-                <Feather color="#667994" name={isCollapsed ? "chevron-down" : "chevron-up"} size={20} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: !isCollapsed }}
+                onPress={() => onToggle(device.key)}
+                style={styles.deviceToggle}
+              >
+                <Text style={styles.deviceTitle} variant="headline">
+                  {deviceSummary(device)}
+                </Text>
+                <Icon color={colors.muted} name={isCollapsed ? "chevronDown" : "chevronUp"} size={16} />
               </Pressable>
               <Pressable
                 accessibilityLabel="Remover aparelho"
-                hitSlop={8}
                 onPress={() => onRemove(device.key)}
                 style={styles.iconButton}
               >
-                <Feather color="#d71929" name="trash-2" size={18} />
+                <Icon color={colors.danger} name="trash" size={18} />
               </Pressable>
             </View>
             {!isCollapsed ? (
@@ -72,14 +80,15 @@ export default function OrderDevicesSection({ devices, collapsed, laborTotal, on
 }
 
 const styles = StyleSheet.create({
-  deviceCard: { borderBottomColor: "#eef2f6", borderBottomWidth: 1, marginBottom: 12, paddingBottom: 4 },
-  deviceHeading: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
+  deviceCard: {
+    backgroundColor: colors.background,
+    borderRadius: radius.control,
+    gap: 14,
+    marginBottom: 4,
+    padding: 12,
   },
-  deviceToggle: { alignItems: "center", flex: 1, flexDirection: "row", paddingRight: 8 },
-  deviceTitle: { color: "#092542", flex: 1, fontSize: 15, fontWeight: "700", paddingRight: 8 },
-  iconButton: { padding: 4 },
+  deviceHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  deviceToggle: { alignItems: "center", flex: 1, flexDirection: "row", gap: 8, minHeight: 48, paddingRight: 8 },
+  deviceTitle: { flex: 1 },
+  iconButton: { alignItems: "center", height: 48, justifyContent: "center", width: 48 },
 });

@@ -1,6 +1,8 @@
 import { ApiError, apiClient, authorizedFetch, parseApiError } from "../providers/api";
 import { createSseParser } from "../utils/chat";
 
+const encode = (id) => encodeURIComponent(id);
+
 class ChatService {
   async sendMessage({ content, conversationId }) {
     const response = await apiClient.post("/chats/messages", { content, conversationId }, { timeout: 60000 });
@@ -49,6 +51,45 @@ class ChatService {
   async refreshSuggestions() {
     const response = await apiClient.post("/chats/suggestions");
     return response.data;
+  }
+
+  async listConversations({ cursor, limit = 20, signal } = {}) {
+    const response = await apiClient.get("/chats/conversations", {
+      signal,
+      params: { limit, ...(cursor ? { cursor } : {}) },
+    });
+    return { items: response.data?.items ?? [], nextCursor: response.data?.nextCursor ?? null };
+  }
+
+  async getConversation(conversationId, { signal } = {}) {
+    const response = await apiClient.get(`/chats/conversations/${encode(conversationId)}`, { signal });
+    return response.data;
+  }
+
+  async getMessages(conversationId, { cursor, limit = 50, etag, signal } = {}) {
+    const response = await apiClient.get(`/chats/conversations/${encode(conversationId)}/messages`, {
+      signal,
+      params: { limit, ...(cursor ? { cursor } : {}) },
+      headers: etag ? { "If-None-Match": etag } : undefined,
+      validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
+    });
+    const responseEtag = response.headers?.etag ?? response.headers?.ETag ?? etag ?? null;
+    if (response.status === 304) return { notModified: true, etag: responseEtag };
+    return {
+      notModified: false,
+      etag: responseEtag,
+      items: response.data?.items ?? [],
+      nextCursor: response.data?.nextCursor ?? null,
+    };
+  }
+
+  async renameConversation(conversationId, title) {
+    const response = await apiClient.patch(`/chats/conversations/${encode(conversationId)}`, { title });
+    return response.data;
+  }
+
+  async deleteConversation(conversationId) {
+    await apiClient.delete(`/chats/conversations/${encode(conversationId)}`);
   }
 }
 

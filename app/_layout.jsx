@@ -1,23 +1,28 @@
 import { useEffect, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { enableLegacyHeaderAppearance, Stack, useRouter, useSegments } from "expo-router";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
-import { queryClient, subscribeAppFocus } from "../providers/queryClient";
+import { persistOptions, queryClient, subscribeAppFocus } from "../providers/queryClient";
+
+enableLegacyHeaderAppearance();
 
 export default function RootLayout() {
   useEffect(() => subscribeAppFocus(), []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <KeyboardProvider preload={false}>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
-      </KeyboardProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+        <KeyboardProvider preload={false}>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </KeyboardProvider>
+      </PersistQueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -51,10 +56,16 @@ function RootNavigator() {
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <>
+      <StatusBar style="light" />
+      <Stack screenOptions={{ headerShown: false }} />
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   splash: { alignItems: "center", backgroundColor: "#061d2d", flex: 1, justifyContent: "center" },
   logo: { height: 110, width: 220 },
 });

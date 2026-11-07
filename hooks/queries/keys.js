@@ -16,7 +16,17 @@ export const queryKeys = {
     list: () => ["components", "list"],
     detail: (componentId) => ["components", "detail", String(componentId)],
   },
+  stockImports: {
+    all: ["stockImports"],
+    list: (status) => ["stockImports", "list", status ?? "all"],
+    detail: (importId) => ["stockImports", "detail", String(importId)],
+  },
   chatSuggestions: ["chat", "suggestions"],
+  chat: {
+    all: ["chat"],
+    conversations: ["chat", "conversations"],
+    messages: (conversationId) => ["chat", "messages", String(conversationId)],
+  },
   insights: ["insights"],
   dashboard: (period) => ["dashboard", period],
 };

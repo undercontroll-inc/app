@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import Feather from "@expo/vector-icons/Feather";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import PickerField from "./ui/PickerField";
+import Text from "./ui/Text";
 import { formatDateBR } from "../utils/orders";
-import { bottomDockPadding } from "../utils/layout";
+import { colors, radius } from "../theme";
 
 function parseBRDate(value) {
   if (!value) return new Date();
@@ -19,110 +19,69 @@ function parseBRDate(value) {
 }
 
 export default function DateField({ label, value, onChange, disabled = false }) {
-  const insets = useSafeAreaInsets();
   const selected = useMemo(() => parseBRDate(value), [value]);
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(selected);
 
-  function openPicker() {
-    setDraft(selected);
-    setOpen(true);
-  }
-
-  function apply(date) {
-    onChange(formatDateBR(date));
-    setOpen(false);
-  }
-
-  function handleAndroidChange(event, date) {
-    if (event.type === "dismissed" || !date) {
-      setOpen(false);
-      return;
-    }
-    apply(date);
+  if (Platform.OS === "ios") {
+    return (
+      <View style={[styles.iosRow, disabled && styles.disabled]}>
+        <Text style={styles.iosLabel} tone="muted" variant="subhead" weight="600">
+          {label}
+        </Text>
+        {disabled ? (
+          <Text variant="body">{value || "—"}</Text>
+        ) : (
+          <DateTimePicker
+            accentColor={colors.orange}
+            display="compact"
+            locale="pt-BR"
+            mode="date"
+            onChange={(_, date) => date && onChange(formatDateBR(date))}
+            value={selected}
+          />
+        )}
+      </View>
+    );
   }
 
   return (
-    <View style={styles.field}>
-      {!!label && <Text style={styles.fieldLabel}>{label}</Text>}
-      <Pressable disabled={disabled} onPress={openPicker} style={[styles.fieldBox, disabled && styles.disabledBox]}>
-        <Text style={styles.fieldValue}>{value || "Selecionar data"}</Text>
-        <Feather color="#667994" name="calendar" size={18} />
-      </Pressable>
-      {open && Platform.OS === "android" && (
-        <DateTimePicker display="default" mode="date" onChange={handleAndroidChange} value={selected} />
-      )}
-      {Platform.OS !== "android" && (
-        <Modal animationType="slide" onRequestClose={() => setOpen(false)} transparent visible={open}>
-          <View style={styles.overlay}>
-            <Pressable onPress={() => setOpen(false)} style={styles.overlayDismiss} />
-            <View style={[styles.sheet, { paddingBottom: bottomDockPadding(insets) }]}>
-              <DateTimePicker
-                display="spinner"
-                locale="pt-BR"
-                mode="date"
-                onChange={(_, date) => date && setDraft(date)}
-                value={draft}
-              />
-              <View style={styles.sheetActions}>
-                <Pressable
-                  onPress={() => apply(draft)}
-                  style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}
-                >
-                  <Text style={styles.confirmButtonText}>Confirmar</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setOpen(false)}
-                  style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
-                >
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
+    <View>
+      <PickerField
+        disabled={disabled}
+        icon="calendar"
+        label={label}
+        onPress={() => setOpen(true)}
+        placeholder="Selecionar data"
+        value={value}
+      />
+      {open ? (
+        <DateTimePicker
+          display="default"
+          mode="date"
+          onChange={(event, date) => {
+            setOpen(false);
+            if (event.type !== "dismissed" && date) onChange(formatDateBR(date));
+          }}
+          value={selected}
+        />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  field: { marginBottom: 12 },
-  fieldLabel: { color: "#667994", fontSize: 14, marginBottom: 8 },
-  disabledBox: { backgroundColor: "#f4f7fb" },
-  fieldBox: {
+  iosRow: {
     alignItems: "center",
-    borderColor: "#dce4ee",
-    borderRadius: 10,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.control,
     borderWidth: 1,
     flexDirection: "row",
-    minHeight: 48,
-    paddingHorizontal: 14,
+    justifyContent: "space-between",
+    minHeight: 56,
+    paddingLeft: 14,
+    paddingRight: 8,
   },
-  fieldValue: { color: "#092542", flex: 1, fontSize: 15, paddingVertical: 10 },
-  overlay: {
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  overlayDismiss: { flex: 1 },
-  sheet: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingBottom: 0,
-    paddingHorizontal: 20,
-  },
-  sheetActions: { gap: 8, paddingTop: 4 },
-  confirmButton: {
-    alignItems: "center",
-    backgroundColor: "#ef7f19",
-    borderRadius: 12,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  confirmButtonText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
-  cancelButton: { alignItems: "center", justifyContent: "center", minHeight: 44 },
-  cancelButtonText: { color: "#667994", fontSize: 16, fontWeight: "700" },
-  pressed: { opacity: 0.72 },
+  iosLabel: { flexShrink: 1 },
+  disabled: { backgroundColor: colors.surfaceMuted, paddingRight: 14 },
 });

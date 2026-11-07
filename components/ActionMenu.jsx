@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { ActionSheetIOS, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { bottomDockPadding } from "../utils/layout";
+import { colors, radius } from "../theme";
 
 export function useActionMenu() {
   const [config, setConfig] = useState(null);
@@ -77,42 +78,38 @@ export function ActionMenuSheet({ config, onClose }) {
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
+  overlay: { backgroundColor: colors.overlay, flex: 1, justifyContent: "flex-end" },
   overlayDismiss: { flex: 1 },
   sheet: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
     paddingHorizontal: 20,
     paddingTop: 8,
   },
   handle: {
     alignSelf: "center",
-    backgroundColor: "#dce4ee",
-    borderRadius: 2,
-    height: 4,
-    marginBottom: 12,
-    width: 36,
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    height: 5,
+    marginBottom: 14,
+    width: 40,
   },
-  title: { color: "#092542", fontSize: 18, fontWeight: "800", textAlign: "center" },
-  message: { color: "#667994", fontSize: 14, marginTop: 6, textAlign: "center" },
-  actions: { gap: 8, marginTop: 16 },
+  title: { color: colors.navy, fontSize: 20, fontWeight: "700", textAlign: "center" },
+  message: { color: colors.muted, fontSize: 15, marginTop: 6, textAlign: "center" },
+  actions: { gap: 10, marginTop: 18 },
   button: {
     alignItems: "center",
-    backgroundColor: "#ef7f19",
-    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.pill,
     justifyContent: "center",
-    minHeight: 48,
+    minHeight: 56,
     paddingVertical: 14,
   },
-  buttonText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
-  destructive: { backgroundColor: "#d71929" },
-  destructiveText: { color: "#ffffff" },
-  cancel: { backgroundColor: "#ffffff", borderColor: "#dce4ee", borderWidth: 1 },
-  cancelText: { color: "#667994" },
+  buttonText: { color: colors.navy, fontSize: 17, fontWeight: "600" },
+  destructive: { backgroundColor: colors.dangerSoft },
+  destructiveText: { color: colors.danger },
+  cancel: { backgroundColor: "transparent" },
+  cancelText: { color: colors.orange, fontWeight: "700" },
   pressed: { opacity: 0.72 },
 });

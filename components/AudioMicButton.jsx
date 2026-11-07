@@ -1,5 +1,7 @@
-import { Pressable, StyleSheet, Text } from "react-native";
-import Feather from "@expo/vector-icons/Feather";
+import { Pressable, StyleSheet } from "react-native";
+import Icon from "./ui/Icon";
+import Text from "./ui/Text";
+import { colors } from "../theme";
 
 function formatTimer(durationMs = 0) {
   const total = Math.max(0, Math.floor(durationMs / 1000));
@@ -16,8 +18,12 @@ export default function AudioMicButton({ status = "idle", durationMs = 0, disabl
       onPress={onPress}
       style={({ pressed }) => [styles.button, recording && styles.recording, pressed && styles.pressed]}
     >
-      <Feather color={recording ? "#ffffff" : "#ef7f19"} name={recording ? "square" : "mic"} size={16} />
-      {recording ? <Text style={styles.timer}>{formatTimer(durationMs)}</Text> : null}
+      <Icon color={recording ? "#ffffff" : colors.orange} name={recording ? "stop" : "mic"} size={18} />
+      {recording ? (
+        <Text tone={recording ? "inverse" : "accent"} variant="footnote" weight="700">
+          {formatTimer(durationMs)}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -25,23 +31,19 @@ export default function AudioMicButton({ status = "idle", durationMs = 0, disabl
 const styles = StyleSheet.create({
   button: {
     alignItems: "center",
-    borderColor: "#ef7f19",
-    borderRadius: 10,
+    borderColor: colors.orange,
+    borderRadius: 999,
     borderWidth: 1,
-    height: 40,
+    flexDirection: "row",
+    gap: 6,
+    height: 48,
     justifyContent: "center",
-    minWidth: 40,
+    minWidth: 48,
     paddingHorizontal: 10,
   },
   recording: {
-    backgroundColor: "#ef7f19",
-    borderColor: "#ef7f19",
-  },
-  timer: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "700",
-    marginTop: 1,
+    backgroundColor: colors.orange,
+    borderColor: colors.orange,
   },
   pressed: {
     opacity: 0.72,

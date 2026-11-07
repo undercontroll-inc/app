@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { isAbortError, normalizeError } from "../providers/api";
 import { chatService } from "../services/ChatService";
 import {
   CHAT_ERROR_MESSAGES,
   applyChatEvent,
+  conversationTitle,
   createMessage,
   finalizeStream,
   isTerminalStatus,
-  isValidConversationId,
+  mergeMessages,
+  messagePreview,
   replaceMessage,
 } from "../utils/chat";
-import { loadConversationId, startConversation } from "../utils/conversation";
+import { queryKeys } from "./queries/keys";
+import { upsertConversation, useConversationMessages } from "./queries/useChatHistory";
 
 const BUSY_COOLDOWN_MS = 5000;
 
@@ -18,34 +22,35 @@ function isWaiting(message) {
   return message.role === "assistant" && (message.status === "pending" || message.status === "streaming");
 }
 
-export default function useAnaChat() {
-  const [messages, setMessages] = useState([]);
+export default function useAnaChat(conversationId, { isNew = false, initialPrompt } = {}) {
+  const queryClient = useQueryClient();
+  const [live, setLive] = useState([]);
   const [busyNotice, setBusyNotice] = useState("");
-  const conversationRef = useRef(null);
+  const [persisted, setPersisted] = useState(!isNew);
+  const [deleted, setDeleted] = useState(false);
   const streamAbort = useRef(null);
   const requestId = useRef(0);
   const pendingChunk = useRef("");
   const frame = useRef(null);
   const sendingRef = useRef(false);
+  const initialSent = useRef(false);
 
-  const sending = messages.some(isWaiting) || Boolean(busyNotice);
+  const historyQuery = useConversationMessages(conversationId, { enabled: persisted });
+  const messages = useMemo(() => mergeMessages(historyQuery.history, live), [historyQuery.history, live]);
+  const sending = live.some(isWaiting) || Boolean(busyNotice);
 
   useEffect(() => {
     sendingRef.current = sending;
   });
 
-  useEffect(() => {
-    let active = true;
-    loadConversationId().then((id) => {
-      if (active && !conversationRef.current) conversationRef.current = id;
-    });
-    return () => {
-      active = false;
+  useEffect(
+    () => () => {
       requestId.current += 1;
       streamAbort.current?.abort();
       if (frame.current != null) cancelAnimationFrame(frame.current);
-    };
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!busyNotice) return undefined;
@@ -53,122 +58,164 @@ export default function useAnaChat() {
     return () => clearTimeout(timeout);
   }, [busyNotice]);
 
-  const runStream = useCallback(async (prompt, assistantId) => {
-    const currentRequest = requestId.current + 1;
-    requestId.current = currentRequest;
-    streamAbort.current?.abort();
-    const controller = new AbortController();
-    streamAbort.current = controller;
-    const isCurrent = () => requestId.current === currentRequest;
-
-    const update = (updater) => {
-      if (!isCurrent()) return;
-      setMessages((current) => replaceMessage(current, assistantId, updater));
-    };
-
-    const flush = () => {
-      if (frame.current != null) {
-        cancelAnimationFrame(frame.current);
-        frame.current = null;
-      }
-      const chunk = pendingChunk.current;
-      pendingChunk.current = "";
-      if (chunk) update((message) => applyChatEvent(message, { event: "delta", data: { content: chunk } }));
-    };
-
-    try {
-      if (!conversationRef.current) conversationRef.current = await loadConversationId();
-      await chatService.streamMessage({
-        content: prompt,
-        conversationId: conversationRef.current,
-        signal: controller.signal,
-        onEvent: (event) => {
-          if (!isCurrent()) return;
-          if (event.event === "delta") {
-            pendingChunk.current += event.data?.content ?? "";
-            if (frame.current == null) {
-              frame.current = requestAnimationFrame(() => {
-                frame.current = null;
-                flush();
-              });
-            }
-            return;
-          }
-          if (event.event === "start") {
-            if (isValidConversationId(event.data?.conversationId)) conversationRef.current = event.data.conversationId;
-            return;
-          }
-          if (event.event !== "done" && event.event !== "partial" && event.event !== "error") return;
-          flush();
-          update((message) => applyChatEvent(message, event));
-        },
+  const finishTurn = useCallback(
+    (prompt, answer) => {
+      const now = new Date().toISOString();
+      const existing = queryClient
+        .getQueryData(queryKeys.chat.conversations)
+        ?.pages?.flatMap((page) => page.items ?? [])
+        .find((item) => item.conversationId === conversationId);
+      upsertConversation(queryClient, {
+        conversationId,
+        title: existing?.title || conversationTitle(prompt),
+        preview: messagePreview(answer || prompt),
+        messageCount: (existing?.messageCount ?? 0) + (answer ? 2 : 1),
+        lastMessageAt: now,
+        createdAt: existing?.createdAt ?? now,
       });
-      flush();
-      update(finalizeStream);
-    } catch (error) {
-      flush();
-      if (!isCurrent()) return;
-      if (isAbortError(error)) {
-        update((message) => (isTerminalStatus(message.status) ? message : finalizeStream(message)));
-        return;
+      setPersisted(true);
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(conversationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations, refetchType: "none" });
+    },
+    [conversationId, queryClient],
+  );
+
+  const runStream = useCallback(
+    async (prompt, assistantId, userId) => {
+      const currentRequest = requestId.current + 1;
+      requestId.current = currentRequest;
+      streamAbort.current?.abort();
+      const controller = new AbortController();
+      streamAbort.current = controller;
+      const isCurrent = () => requestId.current === currentRequest;
+      let answer = "";
+      let stored = false;
+
+      const update = (id, updater) => {
+        if (!isCurrent()) return;
+        setLive((current) => replaceMessage(current, id, updater));
+      };
+
+      const flush = () => {
+        if (frame.current != null) {
+          cancelAnimationFrame(frame.current);
+          frame.current = null;
+        }
+        const chunk = pendingChunk.current;
+        pendingChunk.current = "";
+        if (chunk)
+          update(assistantId, (message) => applyChatEvent(message, { event: "delta", data: { content: chunk } }));
+      };
+
+      try {
+        await chatService.streamMessage({
+          content: prompt,
+          conversationId,
+          signal: controller.signal,
+          onEvent: (event) => {
+            if (!isCurrent()) return;
+            if (event.event === "delta") {
+              answer += event.data?.content ?? "";
+              pendingChunk.current += event.data?.content ?? "";
+              if (frame.current == null) {
+                frame.current = requestAnimationFrame(() => {
+                  frame.current = null;
+                  flush();
+                });
+              }
+              return;
+            }
+            if (event.event === "start") {
+              stored = true;
+              const serverId = event.data?.userMessageId;
+              if (serverId != null && userId) update(userId, (message) => ({ ...message, serverId }));
+              return;
+            }
+            if (event.event !== "done" && event.event !== "partial" && event.event !== "error") return;
+            if (event.data?.content) answer = event.data.content;
+            flush();
+            update(assistantId, (message) => applyChatEvent(message, event));
+          },
+        });
+        flush();
+        update(assistantId, finalizeStream);
+      } catch (error) {
+        flush();
+        if (!isCurrent()) return;
+        if (isAbortError(error)) {
+          update(assistantId, (message) => (isTerminalStatus(message.status) ? message : finalizeStream(message)));
+          return;
+        }
+        const apiError = normalizeError(error);
+        const busy = apiError.code === "CHAT_CONVERSATION_BUSY";
+        if (busy) setBusyNotice(CHAT_ERROR_MESSAGES.CHAT_CONVERSATION_BUSY);
+        if (apiError.code === "CONVERSATION_NOT_FOUND") setDeleted(true);
+        update(assistantId, (message) => ({
+          ...message,
+          status: "error",
+          code: apiError.code,
+          errorMessage: CHAT_ERROR_MESSAGES[apiError.code] || apiError.message,
+          retryable: busy || (apiError.retryable && apiError.code !== "CONVERSATION_NOT_FOUND"),
+        }));
+      } finally {
+        if (streamAbort.current === controller) streamAbort.current = null;
+        if (isCurrent() && stored) finishTurn(prompt, answer.trim());
       }
-      const apiError = normalizeError(error);
-      const busy = apiError.code === "CHAT_CONVERSATION_BUSY";
-      if (busy) setBusyNotice(CHAT_ERROR_MESSAGES.CHAT_CONVERSATION_BUSY);
-      update((message) => ({
-        ...message,
-        status: "error",
-        code: apiError.code,
-        errorMessage: CHAT_ERROR_MESSAGES[apiError.code] || apiError.message,
-        retryable: busy || apiError.retryable,
-      }));
-    } finally {
-      if (streamAbort.current === controller) streamAbort.current = null;
-    }
-  }, []);
+    },
+    [conversationId, finishTurn],
+  );
 
   const send = useCallback(
     (text) => {
       const content = String(text || "").trim();
-      if (!content || sendingRef.current) return false;
+      if (!content || sendingRef.current || deleted) return false;
       sendingRef.current = true;
       const userMessage = createMessage({ role: "user", content });
       const assistantMessage = { ...createMessage({ role: "assistant", status: "pending" }), prompt: content };
-      setMessages((current) => [...current, userMessage, assistantMessage]);
-      runStream(content, assistantMessage.id);
+      setLive((current) => [...current, userMessage, assistantMessage]);
+      runStream(content, assistantMessage.id, userMessage.id);
       return true;
     },
-    [runStream],
+    [deleted, runStream],
   );
 
   const retry = useCallback(
     (message) => {
       if (!message?.prompt || !message.retryable || sendingRef.current) return;
       sendingRef.current = true;
-      setMessages((current) =>
+      setLive((current) =>
         replaceMessage(current, message.id, (item) => ({
           id: item.id,
           role: item.role,
           prompt: item.prompt,
           content: "",
           status: "pending",
+          createdAt: item.createdAt,
         })),
       );
-      runStream(message.prompt, message.id);
+      runStream(message.prompt, message.id, null);
     },
     [runStream],
   );
 
-  const reset = useCallback(async () => {
-    requestId.current += 1;
-    streamAbort.current?.abort();
-    streamAbort.current = null;
-    pendingChunk.current = "";
-    setMessages([]);
-    setBusyNotice("");
-    sendingRef.current = false;
-    conversationRef.current = await startConversation();
-  }, []);
+  useEffect(() => {
+    if (!initialPrompt || initialSent.current) return;
+    initialSent.current = true;
+    send(initialPrompt);
+  }, [initialPrompt, send]);
 
-  return { messages, sending, busyNotice, send, retry, reset };
+  return {
+    messages,
+    sending,
+    busyNotice,
+    deleted,
+    send,
+    retry,
+    loadingHistory: persisted && historyQuery.isPending,
+    historyError: historyQuery.isError ? historyQuery.error : null,
+    refetchHistory: historyQuery.refetch,
+    loadOlder: historyQuery.fetchNextPage,
+    hasOlder: Boolean(historyQuery.hasNextPage),
+    loadingOlder: historyQuery.isFetchingNextPage,
+  };
 }

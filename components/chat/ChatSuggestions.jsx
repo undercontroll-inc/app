@@ -1,6 +1,7 @@
 import { useState } from "react";
-import Feather from "@expo/vector-icons/Feather";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import Icon from "../ui/Icon";
+import { colors, shadow } from "../../theme";
 
 export default function ChatSuggestions({ suggestions, loading, error, refreshing, onSelect, onRefresh }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -20,7 +21,7 @@ export default function ChatSuggestions({ suggestions, loading, error, refreshin
             {refreshing ? (
               <ActivityIndicator color="#667994" />
             ) : (
-              <Feather color="#667994" name="refresh-cw" size={18} />
+              <Icon color={colors.muted} name="refresh" size={18} />
             )}
           </Pressable>
           <Pressable
@@ -29,7 +30,7 @@ export default function ChatSuggestions({ suggestions, loading, error, refreshin
             onPress={() => setCollapsed((current) => !current)}
             style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
           >
-            <Feather color="#667994" name={collapsed ? "chevron-up" : "chevron-down"} size={20} />
+            <Icon color={colors.muted} name={collapsed ? "chevronDown" : "chevronUp"} size={16} />
           </Pressable>
         </View>
       </View>
@@ -71,8 +72,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#092542",
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "600",
   },
   actions: {
     alignItems: "center",
@@ -81,25 +82,24 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     alignItems: "center",
-    height: 36,
+    height: 44,
     justifyContent: "center",
-    width: 36,
+    width: 44,
   },
   list: {
     gap: 12,
   },
   card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#dce4ee",
+    ...shadow,
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
   cardText: {
     color: "#092542",
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 17,
+    lineHeight: 24,
   },
   state: {
     alignItems: "center",
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   error: {
     color: "#d71929",
-    fontSize: 14,
+    fontSize: 15,
     textAlign: "center",
   },
   pressed: {

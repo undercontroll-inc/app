@@ -1,16 +1,13 @@
 import { memo } from "react";
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FlatList, StyleSheet, View } from "react-native";
 import SearchField from "./SearchField";
-import { bottomDockPadding } from "../utils/layout";
+import { ListRow } from "./ui/ListSection";
+import Sheet from "./ui/Sheet";
+import Text from "./ui/Text";
+import { colors, radius } from "../theme";
 
-const SearchResultRow = memo(function SearchResultRow({ item, onSelect }) {
-  return (
-    <Pressable onPress={() => onSelect(item)} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <Text style={styles.rowTitle}>{item.title}</Text>
-      {item.meta ? <Text style={styles.rowMeta}>{item.meta}</Text> : null}
-    </Pressable>
-  );
+const SearchResultRow = memo(function SearchResultRow({ item, onSelect, last }) {
+  return <ListRow last={last} onPress={() => onSelect(item)} subtitle={item.meta} title={item.title} />;
 });
 
 export default function SearchSheet({
@@ -24,90 +21,38 @@ export default function SearchSheet({
   onSelect,
   onClose,
 }) {
-  const insets = useSafeAreaInsets();
-
   return (
-    <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.overlay}>
-        <Pressable onPress={onClose} style={styles.overlayDismiss} />
-        <View style={[styles.sheet, { paddingBottom: bottomDockPadding(insets) }]}>
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <Pressable onPress={onClose} style={styles.headerAction}>
-              <Text style={styles.cancelText}>Cancelar</Text>
-            </Pressable>
+    <Sheet fullHeight onClose={onClose} title={title} visible={visible}>
+      <View style={styles.searchWrap}>
+        <SearchField autoFocus onChangeText={onChangeQuery} placeholder={placeholder} value={query} />
+      </View>
+      <FlatList
+        ListEmptyComponent={
+          <Text align="center" style={styles.empty} tone="muted" variant="callout">
+            {emptyText}
+          </Text>
+        }
+        contentContainerStyle={styles.listContent}
+        data={results}
+        keyExtractor={(item) => item.key}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item, index }) => (
+          <View style={[styles.rowWrap, index === 0 && styles.first, index === results.length - 1 && styles.last]}>
+            <SearchResultRow item={item} last={index === results.length - 1} onSelect={onSelect} />
           </View>
-          <Text style={styles.title}>{title}</Text>
-          <View style={styles.searchWrap}>
-            <SearchField autoFocus onChangeText={onChangeQuery} placeholder={placeholder} value={query} />
-          </View>
-          <FlatList
-            ListEmptyComponent={<Text style={styles.empty}>{emptyText}</Text>}
-            data={results}
-            keyExtractor={(item) => item.key}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => <SearchResultRow item={item} onSelect={onSelect} />}
-            style={styles.list}
-          />
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+        )}
+        style={styles.list}
+      />
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  overlayDismiss: { flex: 1 },
-  sheet: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    maxHeight: "80%",
-    paddingHorizontal: 20,
-  },
-  handle: {
-    alignSelf: "center",
-    backgroundColor: "#dce4ee",
-    borderRadius: 2,
-    height: 4,
-    marginTop: 8,
-    width: 36,
-  },
-  header: {
-    flexDirection: "row",
-    paddingTop: 4,
-  },
-  headerAction: {
-    paddingVertical: 8,
-    paddingRight: 6,
-  },
-  cancelText: {
-    color: "#667994",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  title: {
-    color: "#092542",
-    fontSize: 22,
-    fontWeight: "800",
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  searchWrap: { marginBottom: 8 },
-  list: {
-    maxHeight: 360,
-  },
-  row: {
-    borderBottomColor: "#eef2f6",
-    borderBottomWidth: 1,
-    paddingVertical: 12,
-  },
-  rowTitle: { color: "#092542", fontSize: 15, fontWeight: "700" },
-  rowMeta: { color: "#667994", fontSize: 13, marginTop: 4 },
-  empty: { color: "#667994", fontSize: 14, paddingVertical: 20, textAlign: "center" },
-  pressed: { opacity: 0.72 },
+  searchWrap: { paddingBottom: 12, paddingHorizontal: 16 },
+  list: { flex: 1 },
+  listContent: { paddingBottom: 32, paddingHorizontal: 16 },
+  rowWrap: { backgroundColor: colors.surface, overflow: "hidden" },
+  first: { borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card },
+  last: { borderBottomLeftRadius: radius.card, borderBottomRightRadius: radius.card },
+  empty: { paddingVertical: 32 },
 });

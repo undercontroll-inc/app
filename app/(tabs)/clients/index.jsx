@@ -1,30 +1,24 @@
 import { useCallback, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Linking,
-  Platform,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, FlatList, Linking, RefreshControl, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AppHeader from "../../../components/AppHeader";
-import AppShell from "../../../components/AppShell";
 import ClientCard from "../../../components/ClientCard";
-import SearchField from "../../../components/SearchField";
 import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
+import Banner from "../../../components/ui/Banner";
+import GlassFab from "../../../components/ui/GlassFab";
+import StateView from "../../../components/ui/StateView";
 import { useCustomers, useDeleteCustomer } from "../../../hooks/queries/useCustomers";
+import SearchField from "../../../components/SearchField";
 import useRefreshOnFocus from "../../../hooks/useRefreshOnFocus";
 import { getErrorMessage } from "../../../providers/api";
 import { telUrl, whatsappUrl } from "../../../utils/contact";
 import { formatUserName } from "../../../utils/orders";
+import { colors } from "../../../theme";
+
+function openContact(url, onFail) {
+  Linking.openURL(url).catch(onFail);
+}
 
 export default function ClientsScreen() {
-  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
   const [actionError, setActionError] = useState("");
   const [pulling, setPulling] = useState(false);
@@ -35,8 +29,6 @@ export default function ClientsScreen() {
   useRefreshOnFocus(refetch);
 
   const clients = useMemo(() => customersQuery.data ?? [], [customersQuery.data]);
-  const loading = customersQuery.isPending;
-  const error = customersQuery.isError ? getErrorMessage(customersQuery.error) : "";
 
   async function onRefresh() {
     setPulling(true);
@@ -53,7 +45,54 @@ export default function ClientsScreen() {
     });
   }, [clients, search]);
 
-  const fabBottom = Platform.OS === "ios" ? 16 + Math.max(insets.bottom, 8) : 22;
+  const confirmDelete = useCallback(
+    (client) => {
+      Alert.alert("Excluir cliente?", `${formatUserName(client)} será removido.`, [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => {
+            setActionError("");
+            deleteCustomer(client.id, { onError: (err) => setActionError(getErrorMessage(err)) });
+          },
+        },
+      ]);
+    },
+    [deleteCustomer],
+  );
+
+  const swipeActions = useCallback(
+    (client) => {
+      const onFail = () => setActionError("Não foi possível abrir o aplicativo.");
+      const callUrl = telUrl(client.phone);
+      const chatUrl = client.hasWhatsApp ? whatsappUrl(client.phone) : null;
+      const actions = [];
+      if (callUrl)
+        actions.push({
+          label: "Ligar",
+          icon: "phone",
+          color: colors.success,
+          onPress: () => openContact(callUrl, onFail),
+        });
+      if (chatUrl)
+        actions.push({
+          label: "WhatsApp",
+          icon: "whatsapp",
+          color: "#1f9e58",
+          onPress: () => openContact(chatUrl, onFail),
+        });
+      actions.push({
+        label: "Editar",
+        icon: "edit",
+        color: colors.orange,
+        onPress: () => router.push(`/clients/${client.id}/edit`),
+      });
+      actions.push({ label: "Excluir", icon: "trash", color: colors.danger, onPress: () => confirmDelete(client) });
+      return { actions };
+    },
+    [confirmDelete],
+  );
 
   const { show } = menu;
   const openClientActions = useCallback(
@@ -74,14 +113,7 @@ export default function ClientsScreen() {
       }
       options.push(
         { label: "Editar", onPress: () => router.push(`/clients/${client.id}/edit`) },
-        {
-          label: "Excluir",
-          destructive: true,
-          onPress: () => {
-            setActionError("");
-            deleteCustomer(client.id, { onError: (err) => setActionError(getErrorMessage(err)) });
-          },
-        },
+        { label: "Excluir", destructive: true, onPress: () => confirmDelete(client) },
         { label: "Cancelar", cancel: true },
       );
       show({
@@ -90,94 +122,57 @@ export default function ClientsScreen() {
         options,
       });
     },
-    [deleteCustomer, show],
+    [confirmDelete, show],
   );
 
   const openClient = useCallback((client) => router.push(`/clients/${client.id}`), []);
 
   const renderItem = useCallback(
-    ({ item }) => <ClientCard client={item} onLongPress={openClientActions} onPress={openClient} />,
-    [openClient, openClientActions],
+    ({ item }) => (
+      <ClientCard client={item} onLongPress={openClientActions} onPress={openClient} {...swipeActions(item)} />
+    ),
+    [openClient, openClientActions, swipeActions],
   );
 
-  function renderEmpty() {
-    if (loading) {
-      return (
-        <View style={styles.state}>
-          <ActivityIndicator color="#ef7f19" />
-          <Text style={styles.stateText}>Carregando clientes...</Text>
-        </View>
-      );
-    }
-    if (error) {
-      return (
-        <View style={styles.state}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={() => refetch()} style={styles.retry}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
-          </Pressable>
-        </View>
-      );
-    }
-    return <Text style={styles.empty}>Nenhum cliente encontrado.</Text>;
-  }
+  const showList = !customersQuery.isPending && !customersQuery.isError;
 
   return (
-    <AppShell>
-      <AppHeader />
+    <View style={styles.screen}>
       <FlatList
+        ListEmptyComponent={
+          <StateView
+            error={customersQuery.isError ? getErrorMessage(customersQuery.error) : null}
+            icon="users"
+            loading={customersQuery.isPending}
+            loadingText="Carregando clientes..."
+            message={search ? "Tente outro nome, CPF ou telefone." : "Toque em “Novo cliente” para cadastrar."}
+            onRetry={refetch}
+            title="Nenhum cliente encontrado"
+          />
+        }
         ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <Text style={styles.title}>Clientes</Text>
+          <View style={styles.header}>
             <SearchField onChangeText={setSearch} placeholder="Nome, CPF ou telefone" value={search} />
-            {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
+            {actionError ? <Banner message={actionError} tone="danger" /> : null}
           </View>
         }
         contentContainerStyle={styles.content}
-        data={loading || error ? [] : visibleClients}
+        contentInsetAdjustmentBehavior="automatic"
+        data={showList ? visibleClients : []}
         keyExtractor={(client) => String(client.id)}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={renderEmpty}
-        refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={pulling} tintColor="#ef7f19" />}
+        refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={pulling} tintColor={colors.orange} />}
         renderItem={renderItem}
       />
-      <Pressable
-        accessibilityLabel="Cadastrar novo cliente"
-        onPress={() => router.push("/clients/new")}
-        style={({ pressed }) => [styles.newButton, { bottom: fabBottom }, pressed && styles.pressed]}
-      >
-        <Text style={styles.newButtonText}>＋ Novo Cliente</Text>
-      </Pressable>
+      <GlassFab label="Novo cliente" onPress={() => router.push("/clients/new")} testID="clients-new" />
       <ActionMenuSheet config={menu.config} onClose={menu.close} />
-    </AppShell>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120 },
-  listHeader: { marginBottom: 12 },
-  title: { color: "#092542", fontSize: 22, fontWeight: "800", marginBottom: 12 },
-  newButton: {
-    alignSelf: "flex-end",
-    backgroundColor: "#ef7f19",
-    borderRadius: 28,
-    elevation: 8,
-    paddingHorizontal: 22,
-    paddingVertical: 16,
-    position: "absolute",
-    right: 16,
-    shadowColor: "#092542",
-    shadowOffset: { height: 4, width: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 6,
-  },
-  newButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  pressed: { opacity: 0.8 },
-  state: { alignItems: "center", paddingVertical: 32 },
-  stateText: { color: "#667994", fontSize: 15, marginTop: 12 },
-  actionError: { color: "#d71929", fontSize: 14, marginTop: 8 },
-  errorText: { color: "#d71929", fontSize: 15, textAlign: "center" },
-  retry: { marginTop: 12, padding: 10 },
-  retryText: { color: "#ef7f19", fontSize: 15, fontWeight: "700" },
-  empty: { color: "#667994", fontSize: 16, marginTop: 12, textAlign: "center" },
+  screen: { backgroundColor: colors.background, flex: 1 },
+  content: { paddingBottom: 140, paddingHorizontal: 20, paddingTop: 8 },
+  header: { gap: 12, marginBottom: 16 },
 });

@@ -8,7 +8,7 @@ import { ApiError } from "../../providers/apiError";
 const mockAuth = { user: { name: "Admin", userType: "ADMINISTRATOR" } };
 
 jest.mock("../../contexts/AuthContext", () => ({ useAuth: () => mockAuth }));
-jest.mock("../../components/AppHeader", () => () => null);
+jest.mock("expo-router", () => ({ useNavigation: () => ({ setOptions: jest.fn() }) }));
 jest.mock("../../services/InsightService", () => ({
   insightService: { getInsights: jest.fn(), requestJob: jest.fn() },
 }));

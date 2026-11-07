@@ -10,6 +10,7 @@ import { demandService } from "../../services/DemandService";
 jest.mock("expo-router", () => ({
   router: { replace: jest.fn(), back: jest.fn(), push: jest.fn() },
   useFocusEffect: jest.fn(),
+  Stack: { Screen: () => null },
 }));
 jest.mock("../../services/OrderService", () => ({
   orderService: { getById: jest.fn(), update: jest.fn(), create: jest.fn(), list: jest.fn() },
@@ -61,7 +62,7 @@ describe("OrderForm", () => {
       customerDescription: "Não gela",
       technicalDescription: "Compressor",
     });
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/orders"));
+    await waitFor(() => expect(router.back).toHaveBeenCalled());
   });
 
   it("blocks the first step until a client is selected", async () => {
