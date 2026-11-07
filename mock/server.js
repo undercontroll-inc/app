@@ -448,16 +448,203 @@ function mockReply(content) {
 }
 
 const CONVERSATION_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const conversations = new Map();
+let chatMessageSeq = 5000;
+
+function titleFrom(text) {
+  const line =
+    String(text || "")
+      .split(/\r?\n/)
+      .map((item) => item.replace(/\s+/g, " ").trim())
+      .find(Boolean) || "";
+  if (!line) return "Nova conversa";
+  if (line.length <= 60) return line;
+  const slice = line.slice(0, 60);
+  const space = slice.lastIndexOf(" ");
+  return `${(space >= 20 ? slice.slice(0, space) : slice).trimEnd()}…`;
+}
+
+function previewFrom(text) {
+  const clean = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return clean.length > 160 ? `${clean.slice(0, 159)}…` : clean;
+}
+
+function ensureConversation(conversationId, firstText, at = new Date()) {
+  let conversation = conversations.get(conversationId);
+  if (!conversation) {
+    conversation = {
+      conversationId,
+      title: titleFrom(firstText),
+      createdAt: at.toISOString(),
+      lastMessageAt: at.toISOString(),
+      messages: [],
+      deleted: false,
+    };
+    conversations.set(conversationId, conversation);
+  }
+  return conversation;
+}
+
+function addChatMessage(conversation, role, content, state = "completed", reason = null, at = new Date()) {
+  chatMessageSeq += 1;
+  const message = { id: chatMessageSeq, role, content, state, reason, createdAt: at.toISOString() };
+  conversation.messages.push(message);
+  conversation.lastMessageAt = message.createdAt;
+  return message;
+}
+
+function summaryOf(conversation) {
+  const last = conversation.messages[conversation.messages.length - 1];
+  return {
+    conversationId: conversation.conversationId,
+    title: conversation.title,
+    preview: previewFrom(last?.content),
+    messageCount: conversation.messages.length,
+    lastMessageAt: conversation.lastMessageAt,
+    createdAt: conversation.createdAt,
+  };
+}
+
+function seedConversations() {
+  const day = 24 * 60 * 60 * 1000;
+  const seeds = [
+    {
+      id: "app-seed-hoje",
+      ago: 2 * 60 * 60 * 1000,
+      q: "Quais ordens estão pendentes?",
+      a: "Você tem **3 ordens pendentes**: #12, #15 e #18.",
+    },
+    {
+      id: "app-seed-ontem",
+      ago: day + 3600 * 1000,
+      q: "Quanto faturei nos últimos 30 dias?",
+      a: "Nos últimos 30 dias o faturamento foi de **R$ 8.420,00**.",
+    },
+    {
+      id: "app-seed-semana",
+      ago: 5 * day,
+      q: "Qual peça mais usei este mês?",
+      a: "A peça mais usada foi o **Capacitor 45uF** (6 unidades).",
+    },
+  ];
+  seeds.forEach((seed) => {
+    const start = new Date(Date.now() - seed.ago);
+    const conversation = ensureConversation(seed.id, seed.q, start);
+    for (let index = 0; index < 30; index += 1) {
+      const at = new Date(start.getTime() + index * 60 * 1000);
+      addChatMessage(
+        conversation,
+        index % 2 === 0 ? "user" : "assistant",
+        index === 0 ? seed.q : index === 1 ? seed.a : `Mensagem ${index + 1} do histórico.`,
+        "completed",
+        null,
+        at,
+      );
+    }
+  });
+}
+seedConversations();
+
+function encodeCursor(value) {
+  return Buffer.from(String(value)).toString("base64url");
+}
+
+function decodeCursor(value) {
+  try {
+    return Buffer.from(String(value), "base64url").toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+function liveConversation(req, res) {
+  const conversation = conversations.get(req.params.id);
+  if (!CONVERSATION_ID.test(req.params.id) || !conversation || conversation.deleted) {
+    res.status(404).json({ status: 404, code: "CONVERSATION_NOT_FOUND", message: "Conversation not found" });
+    return null;
+  }
+  return conversation;
+}
+
+server.get("/chats/conversations", (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+  const list = [...conversations.values()]
+    .filter((item) => !item.deleted)
+    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+  const offset = req.query.cursor ? Number(decodeCursor(req.query.cursor)) || 0 : 0;
+  const page = list.slice(offset, offset + limit);
+  res.set("Cache-Control", "no-store, private");
+  res.json({
+    items: page.map(summaryOf),
+    nextCursor: offset + limit < list.length ? encodeCursor(offset + limit) : null,
+  });
+});
+
+server.get("/chats/conversations/:id", (req, res) => {
+  const conversation = liveConversation(req, res);
+  if (conversation) res.json(summaryOf(conversation));
+});
+
+server.get("/chats/conversations/:id/messages", (req, res) => {
+  const conversation = liveConversation(req, res);
+  if (!conversation) return undefined;
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 50);
+  const total = conversation.messages.length;
+  const before = req.query.cursor ? Number(decodeCursor(req.query.cursor)) : total;
+  if (req.query.cursor && !Number.isFinite(before)) {
+    return res.status(400).json({ status: 400, code: "VALIDATION_ERROR", message: "Invalid cursor" });
+  }
+  const start = Math.max(before - limit, 0);
+  const etag = `"${conversation.conversationId}-${total}-${req.query.cursor || "latest"}-${limit}"`;
+  res.set({ ETag: etag, "Cache-Control": "no-cache, private" });
+  if (req.headers["if-none-match"] === etag) return res.status(304).end();
+  return res.json({
+    conversationId: conversation.conversationId,
+    items: conversation.messages.slice(start, before),
+    nextCursor: start > 0 ? encodeCursor(start) : null,
+  });
+});
+
+server.patch("/chats/conversations/:id", (req, res) => {
+  const conversation = liveConversation(req, res);
+  if (!conversation) return undefined;
+  const title = String(req.body?.title || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!title || title.length > 120) {
+    return res.status(400).json({
+      status: 400,
+      code: "VALIDATION_ERROR",
+      message: "Request validation failed",
+      errors: [{ field: "title", message: "O título deve ter entre 1 e 120 caracteres" }],
+    });
+  }
+  conversation.title = title;
+  return res.json(summaryOf(conversation));
+});
+
+server.delete("/chats/conversations/:id", (req, res) => {
+  const conversation = conversations.get(req.params.id);
+  if (conversation) conversation.deleted = true;
+  res.status(204).end();
+});
 
 server.post("/chats/messages/stream", (req, res) => {
   const content = String(req.body?.content || "").trim();
-  const conversationId = req.body?.conversationId || "mock-conversation";
+  const conversationId = req.body?.conversationId || "default";
   if (!content || !CONVERSATION_ID.test(conversationId)) {
     return res.status(400).json({ status: 400, message: "Conteúdo ou conversationId inválido" });
+  }
+  if (conversations.get(conversationId)?.deleted) {
+    return res.status(404).json({ status: 404, code: "CONVERSATION_NOT_FOUND", message: "Conversation not found" });
   }
   if (busyConversations.has(conversationId)) {
     return res.status(409).json({ status: 409, code: "CHAT_CONVERSATION_BUSY", message: "Conversation busy" });
   }
+  const conversation = ensureConversation(conversationId, content);
+  const userMessage = addChatMessage(conversation, "user", content);
 
   busyConversations.add(conversationId);
   res.status(200).set({
@@ -481,7 +668,7 @@ server.post("/chats/messages/stream", (req, res) => {
   };
   res.on("close", finish);
 
-  sendEvent(res, "start", { conversationId });
+  sendEvent(res, "start", { conversationId, userMessageId: userMessage.id });
   sendEvent(res, "status", { phase: "generating" });
   res.write(": keepalive\n\n");
 
@@ -501,9 +688,17 @@ server.post("/chats/messages/stream", (req, res) => {
             retryable: true,
           });
         } else if (reply.kind === "partial") {
-          sendEvent(res, "partial", { state: "partial", content: reply.answer, reason: "max_tokens", retryable: true });
+          const stored = addChatMessage(conversation, "assistant", reply.answer, "partial", "max_tokens");
+          sendEvent(res, "partial", {
+            state: "partial",
+            content: reply.answer,
+            reason: "max_tokens",
+            retryable: true,
+            messageId: stored.id,
+          });
         } else {
-          sendEvent(res, "done", { state: "completed", content: reply.answer });
+          const stored = addChatMessage(conversation, "assistant", reply.answer);
+          sendEvent(res, "done", { state: "completed", content: reply.answer, messageId: stored.id });
         }
         finish();
       },
@@ -650,6 +845,413 @@ server.put("/components/:id", (req, res) => {
   };
   db().get("components").find({ id }).assign(updated).write();
   return res.json(updated);
+});
+
+const STOCK_IMPORT_PROCESSING_MS = Number(process.env.MOCK_STOCK_IMPORT_MS || 4000);
+const stockImports = new Map();
+let stockImportSeq = 100;
+let stockImportItemSeq = 1000;
+
+function candidate(componentId, score) {
+  const component = findComponent(componentId);
+  if (!component) return null;
+  return {
+    componentId: component.id,
+    name: component.item,
+    brand: component.brand || null,
+    currentQuantity: component.quantity ?? 0,
+    price: component.price ?? null,
+    score,
+  };
+}
+
+function importItem(lineNumber, fields, match) {
+  stockImportItemSeq += 1;
+  const candidates = (match.candidates || []).map(([id, score]) => candidate(id, score)).filter(Boolean);
+  const total = fields.unitPrice != null ? Math.round(fields.quantity * fields.unitPrice * 100) / 100 : null;
+  return {
+    id: stockImportItemSeq,
+    lineNumber,
+    supplierCode: fields.supplierCode || null,
+    description: fields.description,
+    quantity: fields.quantity,
+    unit: fields.unit,
+    unitPrice: fields.unitPrice,
+    total: fields.total ?? total,
+    confidence: fields.confidence ?? 0.95,
+    warnings: fields.warnings || [],
+    match: {
+      type: match.type,
+      componentId: match.componentId ?? null,
+      confidence: match.confidence ?? 0,
+      candidates,
+    },
+    action: match.componentId ? "ADD_TO_EXISTING" : "CREATE_NEW",
+    componentId: match.componentId ?? null,
+    updatePrice: false,
+    newComponent: null,
+    result: null,
+  };
+}
+
+function extractedItems() {
+  return [
+    importItem(
+      1,
+      {
+        supplierCode: "EMB-FF85",
+        description: "COMPRESSOR EMBRACO FF8.5HBK 1/4HP 127V",
+        quantity: 2,
+        unit: "UN",
+        unitPrice: 398.9,
+      },
+      { type: "ALIAS", componentId: 10, confidence: 1, candidates: [[10, 1]] },
+    ),
+    importItem(
+      2,
+      {
+        supplierCode: "R134-750",
+        description: "GAS REFRIG R134A LATA 750G",
+        quantity: 10,
+        unit: "UN",
+        unitPrice: 89.5,
+      },
+      { type: "FUZZY", componentId: 12, confidence: 0.91, candidates: [[12, 0.91]] },
+    ),
+    importItem(
+      3,
+      {
+        supplierCode: "FS-15",
+        description: "FILTRO SEC. 15G SOLD.",
+        quantity: 6,
+        unit: "PC",
+        unitPrice: 34.9,
+        confidence: 0.62,
+        warnings: ["LOW_CONFIDENCE"],
+      },
+      {
+        type: "FUZZY",
+        componentId: null,
+        confidence: 0.68,
+        candidates: [
+          [13, 0.68],
+          [10, 0.21],
+        ],
+      },
+    ),
+    importItem(
+      4,
+      {
+        supplierCode: "TC-14",
+        description: "TUBO COBRE 1/4 FLEXIVEL",
+        quantity: 2.5,
+        unit: "M",
+        unitPrice: 42,
+        warnings: ["NON_INTEGER_QUANTITY"],
+      },
+      { type: "NONE", componentId: null, confidence: 0, candidates: [] },
+    ),
+    importItem(
+      5,
+      { supplierCode: "RC-TSV", description: "TERMOSTATO RC TSV0001-01", quantity: 3, unit: "UN", unitPrice: 57.8 },
+      { type: "NONE", componentId: null, confidence: 0, candidates: [] },
+    ),
+  ];
+}
+
+function itemsSum(items) {
+  return Math.round(items.reduce((sum, item) => sum + (Number(item.total) || 0), 0) * 100) / 100;
+}
+
+function processingStage(entry) {
+  const progress = (Date.now() - entry.startedAt) / STOCK_IMPORT_PROCESSING_MS;
+  if (progress < 0.15) return "RECEIVED";
+  return progress < 0.7 ? "EXTRACTING" : "MATCHING";
+}
+
+function refreshStockImport(entry) {
+  if (entry.status !== "PROCESSING") {
+    entry.stage = null;
+    return entry;
+  }
+  if (Date.now() - entry.startedAt < STOCK_IMPORT_PROCESSING_MS) {
+    entry.stage = processingStage(entry);
+    return entry;
+  }
+  entry.stage = null;
+  if (entry.shouldFail) {
+    entry.status = "FAILED";
+    entry.failureReason = "UNREADABLE";
+    entry.failureMessage = "Imagem sem nitidez suficiente.";
+    entry.shouldFail = false;
+  } else {
+    entry.status = "READY";
+    entry.items = extractedItems();
+    entry.itemsTotal = itemsSum(entry.items);
+    entry.supplier = { name: "FrioSul Distribuidora", cnpj: "12345678000190" };
+    entry.invoice = {
+      number: "004512",
+      series: "1",
+      issuedAt: `${new Date().toISOString().slice(0, 10)}T00:00:00-03:00`,
+      accessKey: "35261112345678000190550010000045121000045120",
+      total: entry.itemsTotal,
+    };
+  }
+  entry.updatedAt = new Date().toISOString();
+  return entry;
+}
+
+function publicStockImport(entry) {
+  const { startedAt, shouldFail, ...dto } = refreshStockImport(entry);
+  return dto;
+}
+
+function stockImportOr404(req, res) {
+  const entry = stockImports.get(Number(req.params.id));
+  if (!entry || entry.status === "CANCELED") {
+    res.status(404).json({ status: 404, code: "STOCK_IMPORT_NOT_FOUND", message: "Importação não encontrada" });
+    return null;
+  }
+  return entry;
+}
+
+function invalidState(res, message) {
+  return res.status(409).json({ status: 409, code: "STOCK_IMPORT_INVALID_STATE", message });
+}
+
+server.post("/stock-imports", (req, res) => {
+  const contentType = String(req.headers["content-type"] || "");
+  if (!contentType.startsWith("multipart/form-data")) {
+    return res.status(400).json({ status: 400, code: "STOCK_IMPORT_INVALID", message: "File is required" });
+  }
+  let size = 0;
+  let head = "";
+  req.on("data", (chunk) => {
+    size += chunk.length;
+    if (head.length < 4096) head += chunk.toString("latin1");
+  });
+  req.on("end", () => {
+    if (!/name="file"/.test(head) || size < 64) {
+      return res.status(400).json({ status: 400, code: "STOCK_IMPORT_INVALID", message: "File is empty" });
+    }
+    if (size > 10 * 1024 * 1024) {
+      return res.status(400).json({ status: 400, code: "STOCK_IMPORT_INVALID", message: "File exceeds 10MB" });
+    }
+    const fileName = /filename="([^"]*)"/.exec(head)?.[1] || null;
+    const declared = /name="file"[\s\S]*?content-type:\s*([^\r\n]+)/i.exec(head)?.[1]?.trim().toLowerCase() || "";
+    if (declared.includes("heic") || declared.includes("heif")) {
+      return res
+        .status(400)
+        .json({ status: 400, code: "STOCK_IMPORT_INVALID", message: "Unsupported file type image/heic" });
+    }
+    const sourceType = declared.includes("pdf") ? "PDF" : declared.includes("xml") ? "NFE_XML" : "IMAGE";
+    stockImportSeq += 1;
+    const now = new Date().toISOString();
+    const entry = {
+      id: stockImportSeq,
+      status: "PROCESSING",
+      stage: "RECEIVED",
+      sourceType,
+      fileName,
+      failureReason: null,
+      failureMessage: null,
+      supplier: { name: null, cnpj: null },
+      invoice: { number: null, series: null, issuedAt: null, accessKey: null, total: null },
+      itemsTotal: null,
+      warnings: [],
+      duplicateOfImportId: null,
+      items: [],
+      createdAt: now,
+      updatedAt: now,
+      confirmedAt: null,
+      startedAt: Date.now(),
+      shouldFail: /fail/i.test(fileName || ""),
+    };
+    const confirmedBefore = [...stockImports.values()].find((other) => other.status === "CONFIRMED");
+    if (confirmedBefore) {
+      entry.warnings = ["POSSIBLE_DUPLICATE"];
+      entry.duplicateOfImportId = confirmedBefore.id;
+    }
+    stockImports.set(entry.id, entry);
+    return res.status(202).json(publicStockImport(entry));
+  });
+  return undefined;
+});
+
+server.get("/stock-imports", (req, res) => {
+  const status = req.query.status;
+  const limit = Math.min(Number(req.query.limit) || 20, 50);
+  const list = [...stockImports.values()]
+    .map(refreshStockImport)
+    .filter((entry) => entry.status !== "CANCELED" && (!status || entry.status === status))
+    .sort((a, b) => b.id - a.id)
+    .slice(0, limit)
+    .map((entry) => ({
+      id: entry.id,
+      status: entry.status,
+      stage: entry.stage ?? null,
+      sourceType: entry.sourceType,
+      supplierName: entry.supplier.name,
+      invoiceNumber: entry.invoice.number,
+      issuedAt: entry.invoice.issuedAt,
+      total: entry.invoice.total,
+      itemCount: entry.items.length,
+      createdAt: entry.createdAt,
+    }));
+  res.json(list);
+});
+
+server.get("/stock-imports/:id", (req, res) => {
+  const entry = stockImportOr404(req, res);
+  if (entry) res.json(publicStockImport(entry));
+});
+
+function validateReviewedItems(items) {
+  const errors = [];
+  if (!items.some((item) => item.action !== "IGNORE")) {
+    errors.push({ field: "items", message: "Inclua pelo menos um item" });
+  }
+  items.forEach((item, index) => {
+    if (item.action === "IGNORE") return;
+    if (!String(item.description || "").trim())
+      errors.push({ field: `items[${index}].description`, message: "Descrição obrigatória" });
+    if (!(Number(item.quantity) > 0) || !Number.isInteger(Number(item.quantity))) {
+      errors.push({
+        field: `items[${index}].quantity`,
+        message: "Quantidade deve ser um número inteiro maior que zero",
+      });
+    }
+    if (item.action === "ADD_TO_EXISTING" && item.componentId == null) {
+      errors.push({ field: `items[${index}].componentId`, message: "Escolha o produto do estoque" });
+    }
+  });
+  return errors;
+}
+
+function applyReview(entry, body) {
+  const keepNonNull = (current, next) =>
+    Object.fromEntries(Object.entries({ ...current, ...(next || {}) }).map(([k, v]) => [k, v ?? current[k] ?? null]));
+  entry.supplier = keepNonNull(entry.supplier, body.supplier);
+  entry.invoice = keepNonNull(entry.invoice, body.invoice);
+  let nextLine = entry.items.reduce((max, item) => Math.max(max, item.lineNumber), 0);
+  const previous = new Map(entry.items.map((item) => [item.id, item]));
+  const reviewed = (body.items || []).map((item) => {
+    const base = item.id != null ? previous.get(item.id) : null;
+    stockImportItemSeq += base ? 0 : 1;
+    nextLine += base ? 0 : 1;
+    const unitPrice = item.unitPrice == null ? null : Number(item.unitPrice);
+    return {
+      ...(base || {
+        id: stockImportItemSeq,
+        lineNumber: nextLine,
+        supplierCode: null,
+        confidence: 1,
+        warnings: [],
+        match: { type: "NONE", componentId: null, confidence: 0, candidates: [] },
+        result: null,
+      }),
+      description: item.description,
+      quantity: Number(item.quantity),
+      unit: item.unit ?? null,
+      unitPrice,
+      total: unitPrice != null ? Math.round(Number(item.quantity) * unitPrice * 100) / 100 : null,
+      action: item.action,
+      componentId: item.action === "ADD_TO_EXISTING" ? (item.componentId ?? null) : null,
+      updatePrice: item.action === "ADD_TO_EXISTING" ? Boolean(item.updatePrice) : false,
+      newComponent: item.action === "CREATE_NEW" ? (item.newComponent ?? null) : null,
+    };
+  });
+  const sentIds = new Set(reviewed.map((item) => item.id));
+  const omitted = entry.items
+    .filter((item) => !sentIds.has(item.id))
+    .map((item) => ({ ...item, action: "IGNORE", componentId: null, updatePrice: false, newComponent: null }));
+  entry.items = [...reviewed, ...omitted].sort((a, b) => a.lineNumber - b.lineNumber);
+  entry.itemsTotal = itemsSum(entry.items.filter((item) => item.action !== "IGNORE"));
+  entry.updatedAt = new Date().toISOString();
+}
+
+server.put("/stock-imports/:id", (req, res) => {
+  const entry = stockImportOr404(req, res);
+  if (!entry) return undefined;
+  refreshStockImport(entry);
+  if (entry.status !== "READY") return invalidState(res, "Importação não está pronta para revisão");
+  applyReview(entry, req.body || {});
+  return res.json(publicStockImport(entry));
+});
+
+server.post("/stock-imports/:id/confirm", (req, res) => {
+  const entry = stockImportOr404(req, res);
+  if (!entry) return undefined;
+  refreshStockImport(entry);
+  if (entry.status !== "READY") return invalidState(res, "Importação já confirmada ou indisponível");
+  const body = req.body || {};
+  const errors = validateReviewedItems(body.items || []);
+  if (errors.length) {
+    return res.status(400).json({ status: 400, code: "VALIDATION_ERROR", message: "Dados inválidos", errors });
+  }
+  const missing = (body.items || []).find(
+    (item) => item.action === "ADD_TO_EXISTING" && !findComponent(item.componentId),
+  );
+  if (missing) {
+    return res.status(422).json({ status: 422, code: "COMPONENT_NOT_FOUND", message: "Componente não encontrado" });
+  }
+  applyReview(entry, body);
+  entry.items = entry.items.map((item) => {
+    if (item.action === "IGNORE") return item;
+    if (item.action === "ADD_TO_EXISTING") {
+      const component = findComponent(item.componentId);
+      const previousQuantity = component.quantity ?? 0;
+      const newQuantity = previousQuantity + item.quantity;
+      const patch = {
+        quantity: newQuantity,
+        ...(item.updatePrice && item.unitPrice != null ? { price: item.unitPrice } : {}),
+      };
+      db().get("components").find({ id: component.id }).assign(patch).write();
+      return { ...item, result: { componentId: component.id, created: false, previousQuantity, newQuantity } };
+    }
+    const created = {
+      id: nextId("components"),
+      item: item.newComponent?.name || item.description,
+      description: item.newComponent?.description || item.description,
+      brand: item.newComponent?.brand || "",
+      price: item.unitPrice ?? 0,
+      quantity: item.quantity,
+      supplier: entry.supplier.name || "",
+      category: item.newComponent?.category || "",
+    };
+    db().get("components").push(created).write();
+    return {
+      ...item,
+      result: { componentId: created.id, created: true, previousQuantity: 0, newQuantity: item.quantity },
+    };
+  });
+  entry.status = "CONFIRMED";
+  entry.confirmedAt = new Date().toISOString();
+  entry.updatedAt = entry.confirmedAt;
+  return res.json(publicStockImport(entry));
+});
+
+server.post("/stock-imports/:id/retry", (req, res) => {
+  const entry = stockImportOr404(req, res);
+  if (!entry) return undefined;
+  if (entry.status !== "FAILED") return invalidState(res, "Só é possível tentar de novo uma importação com falha");
+  Object.assign(entry, {
+    status: "PROCESSING",
+    stage: "RECEIVED",
+    failureReason: null,
+    failureMessage: null,
+    startedAt: Date.now(),
+  });
+  return res.status(202).json(publicStockImport(entry));
+});
+
+server.delete("/stock-imports/:id", (req, res) => {
+  const entry = stockImports.get(Number(req.params.id));
+  if (!entry)
+    return res.status(404).json({ status: 404, code: "STOCK_IMPORT_NOT_FOUND", message: "Importação não encontrada" });
+  if (entry.status === "CONFIRMED") return invalidState(res, "Importação já confirmada");
+  entry.status = "CANCELED";
+  return res.status(204).end();
 });
 
 server.use(router);

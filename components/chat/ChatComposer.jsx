@@ -1,5 +1,6 @@
-import Feather from "@expo/vector-icons/Feather";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import Icon from "../ui/Icon";
+import { colors, MAX_FONT_SCALE, shadow } from "../../theme";
 
 export default function ChatComposer({
   value,
@@ -16,6 +17,7 @@ export default function ChatComposer({
       <View style={styles.field}>
         <TextInput
           editable={!disabled}
+          maxFontSizeMultiplier={MAX_FONT_SCALE}
           multiline
           nativeID={nativeID}
           onChangeText={onChangeText}
@@ -24,7 +26,7 @@ export default function ChatComposer({
             if (canSend) onSend();
           }}
           placeholder="Pergunte algo à Ana"
-          placeholderTextColor="#9aaac0"
+          placeholderTextColor={colors.subtle}
           returnKeyType="send"
           style={styles.input}
           value={value}
@@ -36,7 +38,7 @@ export default function ChatComposer({
           onPress={onSend}
           style={({ pressed }) => [styles.send, !canSend && styles.sendDisabled, pressed && canSend && styles.pressed]}
         >
-          <Feather color="#ffffff" name="arrow-up" size={22} />
+          <Icon color="#ffffff" name="send" size={20} weight="bold" />
         </Pressable>
       </View>
     </View>
@@ -51,20 +53,19 @@ const styles = StyleSheet.create({
   },
   field: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#dce4ee",
+    ...shadow,
+    backgroundColor: colors.surface,
     borderRadius: 28,
-    borderWidth: 1,
     flexDirection: "row",
-    minHeight: 52,
+    minHeight: 56,
     paddingLeft: 18,
     paddingRight: 6,
     paddingVertical: 4,
   },
   input: {
-    color: "#092542",
+    color: colors.text,
     flex: 1,
-    fontSize: 16,
+    fontSize: 17,
     lineHeight: 22,
     maxHeight: 120,
     paddingRight: 10,
@@ -72,11 +73,11 @@ const styles = StyleSheet.create({
   },
   send: {
     alignItems: "center",
-    backgroundColor: "#ef7f19",
-    borderRadius: 22,
-    height: 44,
+    backgroundColor: colors.orange,
+    borderRadius: 24,
+    height: 48,
     justifyContent: "center",
-    width: 44,
+    width: 48,
   },
   sendDisabled: {
     opacity: 0.45,

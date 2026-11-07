@@ -7,6 +7,7 @@ import { componentService } from "../../services/ComponentService";
 jest.mock("expo-router", () => ({
   router: { replace: jest.fn(), back: jest.fn() },
   useFocusEffect: jest.fn(),
+  Stack: { Screen: () => null },
 }));
 jest.mock("../../services/ComponentService", () => ({
   componentService: { getById: jest.fn(), create: jest.fn(), update: jest.fn() },
@@ -27,7 +28,7 @@ describe("StockItemForm", () => {
     await fireEvent.changeText(screen.getByPlaceholderText("Categoria"), "Capacitores");
     await fireEvent.changeText(screen.getByPlaceholderText("0"), "80");
     await fireEvent.changeText(screen.getByPlaceholderText("0,00"), "1.250,50");
-    await fireEvent.press(screen.getByText("Cadastrar Item"));
+    await fireEvent.press(screen.getByText("Cadastrar item"));
 
     await waitFor(() => expect(componentService.create).toHaveBeenCalledTimes(1));
     expect(componentService.create).toHaveBeenCalledWith({
@@ -39,7 +40,7 @@ describe("StockItemForm", () => {
       supplier: "",
       quantity: 80,
     });
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/stock"));
+    await waitFor(() => expect(router.back).toHaveBeenCalled());
   });
 
   it("loads a component and updates it without quantity", async () => {
@@ -58,7 +59,7 @@ describe("StockItemForm", () => {
 
     expect(await screen.findByDisplayValue("Compressor 1/4 HP")).toBeTruthy();
     expect(screen.getByDisplayValue("420,00")).toBeTruthy();
-    await fireEvent.press(screen.getByText("Salvar Alterações"));
+    await fireEvent.press(screen.getByText("Salvar alterações"));
 
     await waitFor(() => expect(componentService.update).toHaveBeenCalledTimes(1));
     expect(componentService.update).toHaveBeenCalledWith("10", {
@@ -69,14 +70,14 @@ describe("StockItemForm", () => {
       price: 420,
       supplier: "FrioSul",
     });
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/stock"));
+    await waitFor(() => expect(router.back).toHaveBeenCalled());
   });
 
   it("validates the price before saving", async () => {
     await renderWithProviders(<StockItemForm />);
 
     await fireEvent.changeText(screen.getByPlaceholderText("Nome do item"), "Motor");
-    await fireEvent.press(screen.getByText("Cadastrar Item"));
+    await fireEvent.press(screen.getByText("Cadastrar item"));
 
     expect(await screen.findByText("Informe um preço válido.")).toBeTruthy();
     expect(componentService.create).not.toHaveBeenCalled();

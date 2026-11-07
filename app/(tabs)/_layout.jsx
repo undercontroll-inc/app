@@ -1,6 +1,7 @@
 import { Slot, usePathname } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import BottomNav from "../../components/BottomNav";
+import { colors } from "../../theme";
 import { TabBarVisibilityProvider, useTabBarVisibility } from "../../contexts/TabBarVisibilityContext";
 
 export const unstable_settings = {
@@ -35,6 +36,6 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  root: { backgroundColor: "#ffffff", flex: 1 },
+  root: { backgroundColor: colors.background, flex: 1 },
   content: { flex: 1 },
 });

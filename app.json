@@ -9,7 +9,9 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "A Pelluci usa o microfone para transcrever observações da ordem de serviço."
+        "NSMicrophoneUsageDescription": "A Pelluci usa o microfone para transcrever observações da ordem de serviço.",
+        "NSCameraUsageDescription": "A Pelluci usa a câmera para fotografar notas fiscais e importar os itens para o estoque.",
+        "NSPhotoLibraryUsageDescription": "A Pelluci acessa suas fotos para importar notas fiscais para o estoque."
       }
     },
     "android": {
@@ -19,7 +21,9 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": ["RECORD_AUDIO"]
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -45,7 +49,17 @@
           "resizeMode": "contain",
           "backgroundColor": "#061d2d"
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "A Pelluci usa a câmera para fotografar notas fiscais e importar os itens para o estoque.",
+          "photosPermission": "A Pelluci acessa suas fotos para importar notas fiscais para o estoque.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-document-picker",
+      "expo-status-bar"
     ]
   }
 }

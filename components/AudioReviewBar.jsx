@@ -1,6 +1,8 @@
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import Feather from "@expo/vector-icons/Feather";
+import { Pressable, StyleSheet, View } from "react-native";
+import Icon from "./ui/Icon";
+import Text from "./ui/Text";
+import { colors } from "../theme";
 
 function formatClock(seconds = 0) {
   const total = Math.max(0, Math.floor(seconds));
@@ -32,13 +34,13 @@ export default function AudioReviewBar({ uri, durationMs = 0 }) {
         onPress={togglePlayback}
         style={({ pressed }) => [styles.play, pressed && styles.pressed]}
       >
-        <Feather color="#ffffff" name={playing ? "pause" : "play"} size={18} />
+        <Icon color="#ffffff" name={playing ? "pause" : "play"} size={20} />
       </Pressable>
       <View style={styles.track}>
         <View style={styles.trackBg}>
           <View style={[styles.trackFill, { width: `${progress * 100}%` }]} />
         </View>
-        <Text style={styles.time}>
+        <Text tone="muted" variant="footnote" weight="600">
           {formatClock(status.currentTime)} / {formatClock(duration)}
         </Text>
       </View>
@@ -54,30 +56,25 @@ const styles = StyleSheet.create({
   },
   play: {
     alignItems: "center",
-    backgroundColor: "#ef7f19",
-    borderRadius: 22,
-    height: 44,
+    backgroundColor: colors.orange,
+    borderRadius: 26,
+    height: 52,
     justifyContent: "center",
-    width: 44,
+    width: 52,
   },
   track: {
     flex: 1,
     gap: 6,
   },
   trackBg: {
-    backgroundColor: "#dce4ee",
+    backgroundColor: colors.border,
     borderRadius: 3,
     height: 6,
     overflow: "hidden",
   },
   trackFill: {
-    backgroundColor: "#ef7f19",
+    backgroundColor: colors.orange,
     height: 6,
-  },
-  time: {
-    color: "#667994",
-    fontSize: 12,
-    fontWeight: "600",
   },
   pressed: {
     opacity: 0.72,

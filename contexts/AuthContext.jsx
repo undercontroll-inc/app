@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { clearPersistedCache } from "../providers/queryClient";
 import { setOnUnauthorized } from "../providers/api";
 import { authService } from "../services/AuthService";
 import { clearAuth, hydrateAuth, saveTokens, saveUserData } from "../utils/auth";
-import { clearConversation } from "../utils/conversation";
 
 const AuthContext = createContext(null);
 
@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await Promise.all([clearAuth(), clearConversation()]);
+    await Promise.all([clearAuth(), clearPersistedCache()]);
     queryClient.clear();
     setUser(null);
   }, [queryClient]);
@@ -53,6 +53,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     setOnUnauthorized(() => {
       queryClient.clear();
+      clearPersistedCache();
       setUser(null);
       router.replace("/");
     });

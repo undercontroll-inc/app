@@ -1,3 +1,6 @@
+import { useEffect, useId, useRef } from "react";
+import { router } from "expo-router";
+import { clearVoiceSheet, setVoiceSheet } from "../utils/voiceSheetStore";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -5,16 +8,21 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AudioReviewBar from "./AudioReviewBar";
 import AudioWaveform from "./AudioWaveform";
+import RecordButton from "./RecordButton";
+import Icon from "./ui/Icon";
+import Button from "./ui/Button";
+import Text from "./ui/Text";
 import { bottomDockPadding } from "../utils/layout";
+import { haptics } from "../utils/haptics";
+import { colors, MAX_FONT_SCALE, radius } from "../theme";
 
-function titleFor(status) {
+export function titleFor(status) {
   if (status === "ready") return "Gravar áudio";
   if (status === "recording") return "Gravando";
   if (status === "review") return "Ouvir gravação";
@@ -26,6 +34,127 @@ function titleFor(status) {
 function formatTimer(durationMs = 0) {
   const total = Math.max(0, Math.floor(durationMs / 1000));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+export function VoiceNoteContent({
+  fieldLabel,
+  fieldEmpty,
+  state,
+  onStart,
+  onStop,
+  onTranscribe,
+  onRerecord,
+  onDraftChange,
+  onInsert,
+  onReplace,
+  onUse,
+  onRetry,
+}) {
+  const status = state?.status || "idle";
+  return (
+    <>
+      {fieldLabel ? (
+        <Text tone="muted" variant="subhead">
+          {fieldLabel}
+        </Text>
+      ) : null}
+
+      {status === "ready" || status === "recording" ? (
+        <View style={styles.body}>
+          <AudioWaveform active={status === "recording"} metering={state.metering} tick={state.durationMs} />
+          <View style={styles.timerRow}>
+            {status === "recording" ? <View style={styles.liveDot} /> : null}
+            <Text
+              align="center"
+              style={styles.timer}
+              tone={status === "recording" ? "default" : "subtle"}
+              variant="title"
+            >
+              {formatTimer(status === "recording" ? state.durationMs : 0)}
+            </Text>
+          </View>
+          <RecordButton
+            onPress={() => {
+              if (status === "recording") {
+                haptics.light();
+                onStop();
+              } else {
+                haptics.medium();
+                onStart();
+              }
+            }}
+            recording={status === "recording"}
+          />
+          <Text align="center" tone="muted" variant="subhead">
+            {status === "recording" ? "Toque para parar" : "Toque para começar a gravar"}
+          </Text>
+        </View>
+      ) : null}
+
+      {status === "review" && state.uri ? (
+        <View style={styles.body}>
+          <AudioReviewBar durationMs={state.durationMs} uri={state.uri} />
+          <Button icon={{ sf: "text.bubble.fill", feather: "type" }} label="Transcrever" onPress={onTranscribe} />
+          <Button label="Gravar de novo" onPress={onRerecord} size="md" variant="plain" />
+        </View>
+      ) : null}
+
+      {status === "transcribing" ? (
+        <View style={styles.center}>
+          {Platform.OS === "ios" ? (
+            <Icon
+              animationSpec={{
+                repeating: true,
+                speed: 1,
+                variableAnimationSpec: { iterative: true, dimInactiveLayers: true },
+              }}
+              color={colors.orange}
+              size={56}
+              sf="waveform"
+            />
+          ) : (
+            <ActivityIndicator color={colors.orange} size="large" />
+          )}
+          <Text tone="muted" variant="callout">
+            Transformando sua fala em texto…
+          </Text>
+        </View>
+      ) : null}
+
+      {status === "draft" ? (
+        <View style={styles.body}>
+          <TextInput
+            maxFontSizeMultiplier={MAX_FONT_SCALE}
+            multiline
+            onChangeText={onDraftChange}
+            style={styles.draftInput}
+            textAlignVertical="top"
+            value={state.draftText}
+          />
+          {fieldEmpty ? (
+            <Button label="Usar transcrição" onPress={onUse} />
+          ) : (
+            <View style={styles.row}>
+              <Button label="Inserir no texto" onPress={onInsert} style={styles.rowButton} variant="secondary" />
+              <Button label="Substituir" onPress={onReplace} style={styles.rowButton} />
+            </View>
+          )}
+        </View>
+      ) : null}
+
+      {status === "error" ? (
+        <View style={styles.body}>
+          <Button label="Tentar de novo" onPress={onRetry} />
+        </View>
+      ) : null}
+
+      {state?.errorMessage ? (
+        <Text style={styles.error} tone="danger" variant="subhead" weight="600">
+          {state.errorMessage}
+        </Text>
+      ) : null}
+    </>
+  );
 }
 
 export default function VoiceNoteSheet({
@@ -47,12 +176,75 @@ export default function VoiceNoteSheet({
   const insets = useSafeAreaInsets();
   const status = state?.status || "idle";
   const canClose = status !== "transcribing";
+  const owner = useId();
+  const opened = useRef(false);
+  const previousStatus = useRef(status);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    if (visible) {
+      setVoiceSheet({
+        owner,
+        title: titleFor(status),
+        canClose,
+        onClose,
+        props: {
+          fieldEmpty,
+          fieldLabel,
+          onDraftChange,
+          onInsert,
+          onReplace,
+          onRerecord,
+          onRetry,
+          onStart,
+          onStop,
+          onTranscribe,
+          onUse,
+          state,
+        },
+      });
+      if (!opened.current) {
+        opened.current = true;
+        router.push("/orders/voice-note");
+      }
+    } else if (opened.current) {
+      opened.current = false;
+      clearVoiceSheet(owner);
+    }
+  });
+
+  useEffect(() => {
+    if (previousStatus.current === "transcribing" && status === "draft") haptics.success();
+    if (previousStatus.current !== "error" && status === "error") haptics.error();
+    previousStatus.current = status;
+  }, [status]);
+
   const dismissOnOverlay = status === "ready" || status === "review" || status === "draft" || status === "error";
+
+  const content = (
+    <VoiceNoteContent
+      fieldEmpty={fieldEmpty}
+      fieldLabel={fieldLabel}
+      onDraftChange={onDraftChange}
+      onInsert={onInsert}
+      onReplace={onReplace}
+      onRerecord={onRerecord}
+      onRetry={onRetry}
+      onStart={onStart}
+      onStop={onStop}
+      onTranscribe={onTranscribe}
+      onUse={onUse}
+      state={state}
+    />
+  );
+
+  if (Platform.OS === "ios") return null;
 
   return (
     <Modal animationType="slide" onRequestClose={canClose ? onClose : undefined} transparent visible={visible}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.overlay}>
+      <KeyboardAvoidingView style={styles.overlay}>
         <Pressable
+          accessibilityLabel="Fechar"
           disabled={!dismissOnOverlay}
           onPress={dismissOnOverlay ? onClose : undefined}
           style={styles.overlayDismiss}
@@ -60,91 +252,20 @@ export default function VoiceNoteSheet({
         <View style={[styles.sheet, { paddingBottom: bottomDockPadding(insets) }]}>
           <View style={styles.handle} />
           <View style={styles.header}>
-            <Pressable disabled={!canClose} onPress={onClose} style={styles.headerAction}>
-              <Text style={[styles.cancelText, !canClose && styles.cancelDisabled]}>Cancelar</Text>
+            <Pressable
+              accessibilityRole="button"
+              disabled={!canClose}
+              hitSlop={10}
+              onPress={onClose}
+              style={[styles.headerAction, !canClose && styles.dim]}
+            >
+              <Text tone="accent" variant="body">
+                Cancelar
+              </Text>
             </Pressable>
           </View>
-          <Text style={styles.title}>{titleFor(status)}</Text>
-          {fieldLabel ? <Text style={styles.caption}>{fieldLabel}</Text> : null}
-
-          {status === "ready" ? (
-            <View style={styles.body}>
-              <Pressable onPress={onStart} style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
-                <Text style={styles.primaryText}>Começar a gravar</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {status === "recording" ? (
-            <View style={styles.body}>
-              <AudioWaveform active metering={state.metering} tick={state.durationMs} />
-              <Text style={styles.timer}>{formatTimer(state.durationMs)}</Text>
-              <Pressable onPress={onStop} style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
-                <Text style={styles.primaryText}>Parar</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {status === "review" && state.uri ? (
-            <View style={styles.body}>
-              <AudioReviewBar durationMs={state.durationMs} uri={state.uri} />
-              <Pressable onPress={onTranscribe} style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
-                <Text style={styles.primaryText}>Transcrever</Text>
-              </Pressable>
-              <Pressable onPress={onRerecord} style={({ pressed }) => [styles.textAction, pressed && styles.pressed]}>
-                <Text style={styles.textActionLabel}>Gravar de novo</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {status === "transcribing" ? (
-            <View style={styles.center}>
-              <ActivityIndicator color="#ef7f19" />
-              <Text style={styles.hint}>Isso pode levar alguns segundos</Text>
-            </View>
-          ) : null}
-
-          {status === "draft" ? (
-            <View style={styles.body}>
-              <TextInput
-                multiline
-                onChangeText={onDraftChange}
-                style={styles.draftInput}
-                textAlignVertical="top"
-                value={state.draftText}
-              />
-              {fieldEmpty ? (
-                <Pressable onPress={onUse} style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
-                  <Text style={styles.primaryText}>Usar transcrição</Text>
-                </Pressable>
-              ) : (
-                <View style={styles.row}>
-                  <Pressable
-                    onPress={onInsert}
-                    style={({ pressed }) => [styles.secondary, styles.rowButton, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.secondaryText}>Inserir no texto</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={onReplace}
-                    style={({ pressed }) => [styles.primary, styles.rowButton, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.primaryText}>Substituir</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-          ) : null}
-
-          {status === "error" ? (
-            <View style={styles.body}>
-              <Pressable onPress={onRetry} style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
-                <Text style={styles.primaryText}>Tentar de novo</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {state?.errorMessage ? <Text style={styles.error}>{state.errorMessage}</Text> : null}
+          <Text variant="title2">{titleFor(status)}</Text>
+          {content}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -152,143 +273,42 @@ export default function VoiceNoteSheet({
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  overlayDismiss: {
-    flex: 1,
-  },
+  overlay: { backgroundColor: colors.overlay, flex: 1, justifyContent: "flex-end" },
+  overlayDismiss: { flex: 1 },
   sheet: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    gap: 4,
     paddingHorizontal: 20,
   },
   handle: {
     alignSelf: "center",
-    backgroundColor: "#dce4ee",
-    borderRadius: 2,
-    height: 4,
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    height: 5,
     marginTop: 8,
-    width: 36,
+    width: 40,
   },
-  header: {
-    alignItems: "center",
-    flexDirection: "row",
-    paddingTop: 4,
-  },
-  headerAction: {
-    paddingVertical: 8,
-    paddingRight: 6,
-  },
-  cancelText: {
-    color: "#667994",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  cancelDisabled: {
-    opacity: 0.4,
-  },
-  title: {
-    color: "#092542",
-    fontSize: 22,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-  caption: {
-    color: "#667994",
-    fontSize: 13,
-    marginTop: 4,
-  },
-  body: {
-    gap: 12,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  center: {
-    alignItems: "center",
-    gap: 14,
-    paddingVertical: 28,
-  },
-  hint: {
-    color: "#667994",
-    fontSize: 14,
-  },
-  timer: {
-    color: "#092542",
-    fontSize: 15,
-    fontWeight: "700",
-    textAlign: "center",
-  },
+  header: { alignItems: "center", flexDirection: "row", minHeight: 44 },
+  headerAction: { justifyContent: "center", minHeight: 44 },
+  dim: { opacity: 0.4 },
+  body: { gap: 12, marginTop: 16 },
+  center: { alignItems: "center", gap: 12, paddingVertical: 28 },
+  timer: { fontVariant: ["tabular-nums"] },
+  timerRow: { alignItems: "center", flexDirection: "row", gap: 8, justifyContent: "center" },
+  liveDot: { backgroundColor: colors.danger, borderRadius: 5, height: 10, width: 10 },
   draftInput: {
-    backgroundColor: "#f4f7fb",
-    borderColor: "#dce4ee",
-    borderRadius: 11,
-    borderWidth: 1,
-    color: "#092542",
-    fontSize: 15,
-    lineHeight: 22,
-    maxHeight: 180,
-    minHeight: 96,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: colors.background,
+    borderRadius: radius.control,
+    color: colors.text,
+    fontSize: 17,
+    lineHeight: 24,
+    maxHeight: 220,
+    minHeight: 140,
+    padding: 14,
   },
-  row: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  rowButton: {
-    flex: 1,
-  },
-  primary: {
-    alignItems: "center",
-    alignSelf: "stretch",
-    backgroundColor: "#ef7f19",
-    borderRadius: 10,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  primaryText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  secondary: {
-    alignItems: "center",
-    borderColor: "#ef7f19",
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-  },
-  secondaryText: {
-    color: "#ef7f19",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  textAction: {
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  textActionLabel: {
-    color: "#d71929",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  error: {
-    color: "#d71929",
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  pressed: {
-    opacity: 0.72,
-  },
+  row: { flexDirection: "row", gap: 10 },
+  rowButton: { flex: 1 },
+  error: { marginTop: 12 },
 });

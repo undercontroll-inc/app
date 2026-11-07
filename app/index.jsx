@@ -1,19 +1,41 @@
 import { useRef, useState } from "react";
-import {
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import Feather from "@expo/vector-icons/Feather";
+import { Image, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import Button from "../components/ui/Button";
+import Icon from "../components/ui/Icon";
+import Text from "../components/ui/Text";
 import { useAuth } from "../contexts/AuthContext";
+import { haptics } from "../utils/haptics";
+import { colors, MAX_FONT_SCALE, radius } from "../theme";
+
+const INPUT_BG = "rgba(255,255,255,0.08)";
+const INPUT_BORDER = "rgba(255,255,255,0.16)";
+const PLACEHOLDER = "rgba(255,255,255,0.45)";
+
+function LoginField({ icon, label, trailing, inputRef, ...props }) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label} variant="subhead" weight="600">
+        {label}
+      </Text>
+      <View style={styles.inputBox}>
+        <Icon color="rgba(255,255,255,0.6)" name={icon} size={18} />
+        <TextInput
+          maxFontSizeMultiplier={MAX_FONT_SCALE}
+          placeholderTextColor={PLACEHOLDER}
+          ref={inputRef}
+          selectionColor={colors.orange}
+          style={styles.input}
+          {...props}
+        />
+        {trailing}
+      </View>
+    </View>
+  );
+}
 
 export default function LoginScreen() {
   const passwordInput = useRef(null);
@@ -26,125 +48,133 @@ export default function LoginScreen() {
 
   async function handleLogin() {
     const value = email.trim();
-    if (!value || !password) return setFeedback("Preencha seu e-mail e sua senha.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return setFeedback("Digite um e-mail válido.");
+    if (!value || !password) {
+      haptics.warning();
+      return setFeedback("Preencha seu e-mail e sua senha.");
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      haptics.warning();
+      return setFeedback("Digite um e-mail válido.");
+    }
 
     setSubmitting(true);
     const result = await login(value, password);
     setSubmitting(false);
 
     if (!result.success) {
+      haptics.error();
       setFeedback(result.error || "Não foi possível entrar.");
       return;
     }
 
+    haptics.success();
     router.replace("/orders");
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.content}>
-            <Image source={require("../assets/logo_pelluci.png")} resizeMode="contain" style={styles.logo} />
-            <Text style={styles.title}>Bem-vindo de volta!</Text>
-            <Text style={styles.subtitle}>Insira seus dados para entrar</Text>
-            <View style={styles.form}>
-              <Text style={styles.label}>E-mail</Text>
-              <TextInput
-                autoCapitalize="none"
-                keyboardType="email-address"
-                onChangeText={(value) => {
-                  setEmail(value);
-                  setFeedback("");
-                }}
-                onSubmitEditing={() => passwordInput.current?.focus()}
-                placeholder="Digite seu e-mail"
-                placeholderTextColor="#9caec0"
-                returnKeyType="next"
-                style={styles.input}
-                value={email}
-              />
-              <Text style={[styles.label, styles.passwordLabel]}>Senha</Text>
-              <View style={styles.passwordBox}>
-                <TextInput
-                  onChangeText={(value) => {
-                    setPassword(value);
-                    setFeedback("");
-                  }}
-                  onSubmitEditing={handleLogin}
-                  placeholder="Digite sua senha"
-                  placeholderTextColor="#9caec0"
-                  ref={passwordInput}
-                  returnKeyType="done"
-                  secureTextEntry={!showPassword}
-                  style={styles.passwordInput}
-                  value={password}
-                />
+      <StatusBar style="light" />
+      <KeyboardAwareScrollView
+        bottomOffset={24}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.content}>
+          <Image resizeMode="contain" source={require("../assets/logo_pelluci.png")} style={styles.logo} />
+          <Text align="center" tone="inverse" variant="title">
+            Bem-vindo de volta
+          </Text>
+          <Text align="center" style={styles.subtitle} variant="callout">
+            Entre com seu e-mail e senha
+          </Text>
+          <View style={styles.form}>
+            <LoginField
+              autoCapitalize="none"
+              autoComplete="email"
+              icon="mail"
+              keyboardType="email-address"
+              label="E-mail"
+              onChangeText={(value) => {
+                setEmail(value);
+                setFeedback("");
+              }}
+              onSubmitEditing={() => passwordInput.current?.focus()}
+              placeholder="seu@email.com"
+              returnKeyType="next"
+              textContentType="emailAddress"
+              value={email}
+            />
+            <LoginField
+              autoComplete="current-password"
+              icon="lock"
+              inputRef={passwordInput}
+              label="Senha"
+              onChangeText={(value) => {
+                setPassword(value);
+                setFeedback("");
+              }}
+              onSubmitEditing={handleLogin}
+              placeholder="Sua senha"
+              returnKeyType="done"
+              secureTextEntry={!showPassword}
+              textContentType="password"
+              trailing={
                 <Pressable
                   accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  accessibilityRole="button"
                   onPress={() => setShowPassword((value) => !value)}
                   style={styles.visibility}
                 >
-                  <Feather color="#dbe6ef" name={showPassword ? "eye-off" : "eye"} size={20} />
+                  <Icon color="rgba(255,255,255,0.75)" name={showPassword ? "eyeOff" : "eye"} size={20} />
                 </Pressable>
+              }
+              value={password}
+            />
+            {feedback ? (
+              <View style={styles.feedback}>
+                <Icon color="#ffb0a8" name="alert" size={16} />
+                <Text style={styles.feedbackText} variant="subhead" weight="600">
+                  {feedback}
+                </Text>
               </View>
-              {!!feedback && <Text style={styles.feedback}>{feedback}</Text>}
-              <Pressable
-                disabled={submitting}
-                onPress={handleLogin}
-                style={[styles.button, submitting && styles.buttonDisabled]}
-              >
-                <Text style={styles.buttonText}>{submitting ? "Entrando..." : "Entrar"}</Text>
-              </Pressable>
-            </View>
+            ) : null}
+            <Button label={submitting ? "Entrando..." : "Entrar"} loading={submitting} onPress={handleLogin} />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  safeArea: { backgroundColor: "#061d2d", flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: "center", padding: 32 },
-  content: { alignSelf: "center", maxWidth: 420, width: "100%" },
-  logo: { alignSelf: "center", height: 75, marginBottom: 28, width: 150 },
-  title: { color: "#fff", fontSize: 22, fontWeight: "700", textAlign: "center" },
-  subtitle: { color: "#c5d0da", fontSize: 12, marginTop: 7, textAlign: "center" },
-  form: { marginTop: 34 },
-  label: { color: "#fff", fontSize: 12, marginBottom: 7 },
-  passwordLabel: { marginTop: 20 },
-  input: {
-    backgroundColor: "#102f4c",
-    borderColor: "#2b5c88",
-    borderRadius: 7,
-    borderWidth: 1,
-    color: "#fff",
-    height: 45,
-    paddingHorizontal: 14,
-  },
-  passwordBox: {
+  safeArea: { backgroundColor: colors.navyDeep, flex: 1 },
+  scroll: { flexGrow: 1, justifyContent: "center", padding: 28 },
+  content: { alignSelf: "center", maxWidth: 440, width: "100%" },
+  logo: { alignSelf: "center", height: 80, marginBottom: 32, width: 160 },
+  subtitle: { color: "rgba(255,255,255,0.7)", marginTop: 6 },
+  form: { gap: 18, marginTop: 36 },
+  field: { gap: 8 },
+  label: { color: "rgba(255,255,255,0.85)" },
+  inputBox: {
     alignItems: "center",
-    backgroundColor: "#102f4c",
-    borderColor: "#2b5c88",
-    borderRadius: 7,
+    backgroundColor: INPUT_BG,
+    borderColor: INPUT_BORDER,
+    borderRadius: radius.control,
     borderWidth: 1,
     flexDirection: "row",
-    height: 45,
+    gap: 10,
+    minHeight: 56,
+    paddingLeft: 16,
   },
-  passwordInput: { color: "#fff", flex: 1, height: "100%", paddingHorizontal: 14 },
-  visibility: { alignItems: "center", justifyContent: "center", paddingHorizontal: 12, paddingVertical: 10 },
-  feedback: { color: "#ffb0a8", fontSize: 12, marginTop: 12 },
-  button: {
+  input: { color: "#ffffff", flex: 1, fontSize: 17, paddingRight: 16, paddingVertical: 14 },
+  visibility: { alignItems: "center", height: 56, justifyContent: "center", width: 52 },
+  feedback: {
     alignItems: "center",
-    backgroundColor: "#ef7f19",
-    borderRadius: 8,
-    height: 45,
-    justifyContent: "center",
-    marginTop: 22,
+    backgroundColor: "rgba(215,25,41,0.18)",
+    borderRadius: radius.control,
+    flexDirection: "row",
+    gap: 8,
+    padding: 12,
   },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: "#fff", fontWeight: "700" },
+  feedbackText: { color: "#ffd2cd", flex: 1 },
 });

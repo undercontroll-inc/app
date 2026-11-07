@@ -1,78 +1,43 @@
 import { memo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
+import { Platform, StyleSheet, View } from "react-native";
+import Avatar from "./ui/Avatar";
+import Card from "./ui/Card";
+import Icon from "./ui/Icon";
+import SwipeRow from "./ui/SwipeRow";
+import Text from "./ui/Text";
 import { formatUserName } from "../utils/orders";
+import { colors } from "../theme";
 
-function initials(client) {
-  return formatUserName(client)
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
-
-function ClientCard({ client, onPress, onLongPress }) {
+function ClientCard({ client, onPress, onLongPress, actions = [] }) {
+  const name = formatUserName(client);
   return (
-    <Pressable
-      accessibilityLabel={formatUserName(client)}
-      delayLongPress={350}
-      onLongPress={() => onLongPress?.(client)}
-      onPress={() => onPress?.(client)}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-    >
-      {client.avatarUrl ? (
-        <Image
-          cachePolicy="memory-disk"
-          contentFit="cover"
-          recyclingKey={String(client.id)}
-          source={{ uri: client.avatarUrl }}
-          style={styles.avatar}
-          transition={150}
-        />
-      ) : (
-        <View style={styles.avatarFallback}>
-          <Text style={styles.avatarText}>{initials(client)}</Text>
+    <SwipeRow actions={actions} style={styles.wrap}>
+      <Card
+        accessibilityLabel={name}
+        onLongPress={Platform.OS === "ios" ? undefined : () => onLongPress?.(client)}
+        onPress={() => onPress?.(client)}
+        style={styles.card}
+      >
+        <Avatar name={name} size={48} uri={client.avatarUrl} />
+        <View style={styles.copy}>
+          <Text numberOfLines={1} variant="headline">
+            {name}
+          </Text>
+          <Text numberOfLines={1} tone="muted" variant="subhead">
+            {client.phone || "Telefone não informado"}
+          </Text>
         </View>
-      )}
-      <View style={styles.copy}>
-        <Text numberOfLines={1} style={styles.name}>
-          {formatUserName(client)}
-        </Text>
-        <Text numberOfLines={1} style={styles.phone}>
-          {client.phone || "Telefone não informado"}
-        </Text>
-      </View>
-    </Pressable>
+        {client.hasWhatsApp ? <Icon color={colors.success} name="whatsapp" size={16} /> : null}
+        <Icon color={colors.subtle} name="chevronRight" size={14} />
+      </Card>
+    </SwipeRow>
   );
 }
 
 export default memo(ClientCard);
 
 const styles = StyleSheet.create({
-  card: {
-    alignItems: "center",
-    borderColor: "#dce4ee",
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: "row",
-    marginBottom: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  avatar: { backgroundColor: "#dce4ee", borderRadius: 20, height: 40, width: 40 },
-  avatarFallback: {
-    alignItems: "center",
-    backgroundColor: "#092542",
-    borderRadius: 20,
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  avatarText: { color: "#fff", fontSize: 13, fontWeight: "800" },
-  copy: { flex: 1, marginLeft: 12 },
-  name: { color: "#092542", fontSize: 16, fontWeight: "700" },
-  phone: { color: "#667994", fontSize: 13, marginTop: 2 },
-  pressed: { opacity: 0.75 },
+  wrap: { marginBottom: 10 },
+  card: { alignItems: "center", flexDirection: "row", gap: 14, paddingVertical: 14 },
+  copy: { flex: 1, gap: 2 },
 });

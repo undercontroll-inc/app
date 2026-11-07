@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { StyleSheet, View } from "react-native";
+import { router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTabBarVisibility } from "../contexts/TabBarVisibilityContext";
+import Animated, { FadeInUp, FadeOutUp } from "react-native-reanimated";
 import { useComponents } from "../hooks/queries/useComponents";
 import { useCustomers } from "../hooks/queries/useCustomers";
 import { queryKeys } from "../hooks/queries/keys";
@@ -12,20 +11,24 @@ import useOrderForm from "../hooks/useOrderForm";
 import useVoiceNote from "../hooks/useVoiceNote";
 import { getErrorMessage } from "../providers/api";
 import { orderService } from "../services/OrderService";
-import { bottomDockPadding } from "../utils/layout";
+import { haptics } from "../utils/haptics";
 import { displayContact, matchesClient, matchesComponent } from "../utils/orderForm";
 import { ORDER_STATUS_API, formatCurrency, formatUserName, isOrderCompleted } from "../utils/orders";
-import AppShell from "./AppShell";
-import ScreenHeader from "./ScreenHeader";
 import SearchSheet from "./SearchSheet";
+import Button from "./ui/Button";
+import FormScreen from "./ui/FormScreen";
+import StepIndicator from "./ui/StepIndicator";
+import SwitchRow from "./ui/SwitchRow";
+import Text from "./ui/Text";
+import { colors, radius, shadowStrong } from "../theme";
 import OrderCustomerSection from "./order/OrderCustomerSection";
 import OrderDevicesSection from "./order/OrderDevicesSection";
-import { Section } from "./order/OrderFormParts";
 import OrderNotesSection from "./order/OrderNotesSection";
 import OrderPartsSection from "./order/OrderPartsSection";
 import OrderTotals from "./order/OrderTotals";
 
-const STEP_COUNT = 3;
+const STEPS = ["Cliente e aparelho", "Observações", "Orçamento"];
+const STEP_COUNT = STEPS.length;
 
 const VOICE_PATCH_KEYS = {
   customer: "customerDescription",
@@ -33,8 +36,6 @@ const VOICE_PATCH_KEYS = {
 };
 
 export default function OrderForm({ edit, orderId }) {
-  const insets = useSafeAreaInsets();
-  const { setHidden } = useTabBarVisibility();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [feedback, setFeedback] = useState("");
@@ -68,13 +69,6 @@ export default function OrderForm({ edit, orderId }) {
   const saving = saveOrder.isPending;
   const loading = !!edit && !orderForm.hydrated && !orderQuery.isError;
   const loadError = edit && orderQuery.isError ? getErrorMessage(orderQuery.error) : "";
-
-  useFocusEffect(
-    useCallback(() => {
-      setHidden(true);
-      return () => setHidden(false);
-    }, [setHidden]),
-  );
 
   useEffect(() => {
     if (!feedback) return undefined;
@@ -138,8 +132,14 @@ export default function OrderForm({ edit, orderId }) {
     saveOrder.mutate(
       { orderId: edit ? orderId : null, payload: orderForm.buildPayload() },
       {
-        onSuccess: () => router.replace("/orders"),
-        onError: (err) => setFeedback(getErrorMessage(err)),
+        onSuccess: () => {
+          haptics.success();
+          router.back();
+        },
+        onError: (err) => {
+          haptics.error();
+          setFeedback(getErrorMessage(err));
+        },
       },
     );
   }
@@ -172,9 +172,11 @@ export default function OrderForm({ edit, orderId }) {
     if (!edit && step < STEP_COUNT - 1) {
       const error = step === 0 ? orderForm.validate() : "";
       if (error) {
+        haptics.warning();
         setFeedback(error);
         return;
       }
+      haptics.light();
       setStep((current) => Math.min(current + 1, STEP_COUNT - 1));
       return;
     }
@@ -184,7 +186,7 @@ export default function OrderForm({ edit, orderId }) {
   const showIntake = edit || step === 0;
   const showNotes = edit || step === 1;
   const showBudget = edit || step === 2;
-  const secondaryLabel = edit || step === 0 ? "Cancelar" : "Voltar";
+  const showBack = !edit && step > 0;
   const primaryLabel = saving
     ? "Salvando..."
     : edit
@@ -194,99 +196,75 @@ export default function OrderForm({ edit, orderId }) {
         : "Continuar";
 
   return (
-    <AppShell>
-      <ScreenHeader
-        badge={edit ? "Edição" : `${step + 1}/${STEP_COUNT}`}
-        closeLabel="Fechar ordem de serviço"
-        onClose={() => router.back()}
-        title={edit ? `OS #${orderId}` : "Nova OS"}
-      />
-      {loading ? (
-        <View style={styles.stateBox}>
-          <ActivityIndicator color="#ef7f19" />
-          <Text style={styles.loadingText}>Carregando ordem...</Text>
-        </View>
-      ) : loadError ? (
-        <View style={styles.stateBox}>
-          <Text style={styles.errorText}>{loadError}</Text>
-          <Pressable onPress={() => orderQuery.refetch()} style={styles.retry}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {edit ? (
-            <Section>
-              <View style={styles.completeRow}>
-                <View style={styles.completeCopy}>
-                  <Text style={styles.completeTitle}>OS concluída</Text>
-                  <Text style={styles.completeMeta}>Marque quando o conserto estiver pronto</Text>
-                </View>
-                <Switch
-                  onValueChange={setCompleted}
-                  thumbColor="#ffffff"
-                  trackColor={{ false: "#dce4ee", true: "#25cf79" }}
-                  value={isOrderCompleted(form.status)}
-                />
-              </View>
-            </Section>
-          ) : null}
-          {showIntake ? (
-            <>
-              <OrderCustomerSection client={form.client} editable={!edit} onSelect={() => setClientSheetOpen(true)} />
-              <OrderDevicesSection
-                collapsed={orderForm.collapsedDevices}
-                devices={form.devices}
-                laborTotal={totals.labor}
-                onAdd={addDevice}
-                onChange={orderForm.updateDevice}
-                onRemove={orderForm.removeDevice}
-                onToggle={orderForm.toggleDevice}
-              />
-            </>
-          ) : null}
-          {showNotes ? (
-            <OrderNotesSection note={form.note} onChange={setField} technicalNote={form.technicalNote} voice={voice} />
-          ) : null}
-          {showBudget ? (
-            <>
-              <OrderPartsSection
-                onAdd={() => setPartSheetOpen(true)}
-                onChangeQuantity={orderForm.changePartQuantity}
-                onRemove={orderForm.removePart}
-                parts={form.parts}
-                partsTotal={totals.parts}
-              />
-              <OrderTotals edit={!!edit} form={form} onChange={setField} totals={totals} />
-            </>
-          ) : null}
-        </ScrollView>
-      )}
-      {!!feedback && (
-        <View pointerEvents="none" style={styles.toast}>
-          <Text style={styles.toastText}>{feedback}</Text>
-        </View>
-      )}
-      <View style={[styles.footer, { paddingBottom: bottomDockPadding(insets) }]}>
-        <Pressable onPress={onSecondary} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
-          <Text style={styles.cancelText}>{secondaryLabel}</Text>
-        </Pressable>
-        <Pressable
-          disabled={saving || loading}
-          onPress={onPrimary}
-          style={({ pressed }) => [
-            styles.saveButton,
-            (saving || loading) && styles.saveDisabled,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text style={styles.saveText}>{primaryLabel}</Text>
-        </Pressable>
-      </View>
+    <>
+      <FormScreen
+        footer={
+          <View style={styles.footerRow}>
+            {showBack ? <Button label="Voltar" onPress={onSecondary} style={styles.back} variant="secondary" /> : null}
+            <Button
+              disabled={saving || loading}
+              label={primaryLabel}
+              loading={saving}
+              onPress={onPrimary}
+              style={styles.primary}
+            />
+          </View>
+        }
+        loadError={loadError}
+        loading={loading}
+        loadingText="Carregando ordem..."
+        onCancel={() => router.back()}
+        onRetry={orderQuery.refetch}
+        title={edit ? `OS #${orderId}` : "Nova ordem"}
+      >
+        {!edit ? <StepIndicator step={step} steps={STEPS} /> : null}
+        {edit ? (
+          <View style={styles.completeCard}>
+            <SwitchRow
+              description="Ative quando o conserto estiver pronto"
+              label="OS concluída"
+              onValueChange={setCompleted}
+              value={isOrderCompleted(form.status)}
+            />
+          </View>
+        ) : null}
+        {showIntake ? (
+          <>
+            <OrderCustomerSection client={form.client} editable={!edit} onSelect={() => setClientSheetOpen(true)} />
+            <OrderDevicesSection
+              collapsed={orderForm.collapsedDevices}
+              devices={form.devices}
+              laborTotal={totals.labor}
+              onAdd={addDevice}
+              onChange={orderForm.updateDevice}
+              onRemove={orderForm.removeDevice}
+              onToggle={orderForm.toggleDevice}
+            />
+          </>
+        ) : null}
+        {showNotes ? (
+          <OrderNotesSection note={form.note} onChange={setField} technicalNote={form.technicalNote} voice={voice} />
+        ) : null}
+        {showBudget ? (
+          <>
+            <OrderPartsSection
+              onAdd={() => setPartSheetOpen(true)}
+              onChangeQuantity={orderForm.changePartQuantity}
+              onRemove={orderForm.removePart}
+              parts={form.parts}
+              partsTotal={totals.parts}
+            />
+            <OrderTotals edit={!!edit} form={form} onChange={setField} totals={totals} />
+          </>
+        ) : null}
+      </FormScreen>
+      {feedback ? (
+        <Animated.View entering={FadeInUp} exiting={FadeOutUp} pointerEvents="none" style={styles.toast}>
+          <Text align="center" tone="inverse" variant="subhead" weight="600">
+            {feedback}
+          </Text>
+        </Animated.View>
+      ) : null}
       <SearchSheet
         emptyText={customersQuery.isError ? getErrorMessage(customersQuery.error) : "Nenhum cliente encontrado."}
         onChangeQuery={setClientQuery}
@@ -299,81 +277,43 @@ export default function OrderForm({ edit, orderId }) {
         visible={clientSheetOpen}
       />
       <SearchSheet
-        emptyText={componentsQuery.isError ? getErrorMessage(componentsQuery.error) : "Nenhum componente encontrado."}
+        emptyText={componentsQuery.isError ? getErrorMessage(componentsQuery.error) : "Nenhuma peça encontrada."}
         onChangeQuery={setPartQuery}
         onClose={() => {
           setPartSheetOpen(false);
           setPartQuery("");
         }}
         onSelect={addComponent}
-        placeholder="Pesquise o componente"
+        placeholder="Buscar peça"
         query={partQuery}
         results={partResults}
         title="Peças do estoque"
         visible={partSheetOpen}
       />
-    </AppShell>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, paddingBottom: 28 },
-  stateBox: { alignItems: "center", flex: 1, justifyContent: "center" },
-  loadingText: { color: "#667994", fontSize: 15, marginTop: 12 },
-  errorText: { color: "#d71929", fontSize: 15, paddingHorizontal: 24, textAlign: "center" },
-  retry: { marginTop: 12, padding: 10 },
-  retryText: { color: "#ef7f19", fontSize: 15, fontWeight: "700" },
-  toast: {
-    alignSelf: "center",
-    backgroundColor: "#092542",
-    borderRadius: 12,
-    elevation: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-    position: "absolute",
-    top: 64,
-    shadowColor: "#092542",
-    shadowOffset: { height: 3, width: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-  },
-  toastText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  completeRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-  },
-  completeCopy: { flex: 1 },
-  completeTitle: { color: "#092542", fontSize: 16, fontWeight: "800" },
-  completeMeta: { color: "#667994", fontSize: 13, marginTop: 4 },
-  footer: {
-    backgroundColor: "#fff",
-    borderTopColor: "#dce4ee",
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 12,
+  footerRow: { flexDirection: "row", gap: 10 },
+  back: { flex: 0.8 },
+  primary: { flex: 1.2 },
+  completeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingVertical: 4,
   },
-  cancelButton: {
-    alignItems: "center",
-    borderColor: "#dce4ee",
-    borderRadius: 30,
-    borderWidth: 2,
-    flex: 1,
-    justifyContent: "center",
-    paddingVertical: 16,
+  toast: {
+    ...shadowStrong,
+    alignSelf: "center",
+    backgroundColor: colors.navy,
+    borderRadius: 999,
+    left: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    position: "absolute",
+    right: 24,
+    top: 12,
   },
-  cancelText: { color: "#667994", fontSize: 16, fontWeight: "800" },
-  saveButton: {
-    alignItems: "center",
-    backgroundColor: "#ef7f19",
-    borderRadius: 30,
-    flex: 1,
-    justifyContent: "center",
-    paddingVertical: 16,
-  },
-  saveDisabled: { opacity: 0.65 },
-  saveText: { color: "#fff", fontSize: 16, fontWeight: "800" },
-  pressed: { opacity: 0.72 },
 });

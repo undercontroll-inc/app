@@ -1,39 +1,61 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import Feather from "@expo/vector-icons/Feather";
+import { Pressable, StyleSheet, View } from "react-native";
+import Icon from "../ui/Icon";
+import Text from "../ui/Text";
 import { formatCurrency } from "../../utils/orders";
+import { haptics } from "../../utils/haptics";
+import { colors, radius } from "../../theme";
 import { Section, Summary, formStyles } from "./OrderFormParts";
+
+function StepButton({ icon, label, onPress }) {
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={() => {
+        haptics.selection();
+        onPress();
+      }}
+      style={({ pressed }) => [styles.stepperButton, pressed && formStyles.pressed]}
+    >
+      <Icon color={colors.navy} name={icon} size={18} weight="bold" />
+    </Pressable>
+  );
+}
 
 export default function OrderPartsSection({ parts, partsTotal, onAdd, onRemove, onChangeQuantity }) {
   return (
     <Section action="Adicionar" onAction={onAdd} title="Peças">
-      {parts.length === 0 ? <Text style={styles.emptyParts}>Nenhuma peça selecionada.</Text> : null}
+      {parts.length === 0 ? (
+        <Text tone="muted" variant="subhead">
+          Nenhuma peça selecionada.
+        </Text>
+      ) : null}
       {parts.map((part) => (
         <View key={part.key} style={styles.part}>
           <View style={styles.partHead}>
-            <Text style={styles.partName}>{part.name}</Text>
-            <Pressable accessibilityLabel="Remover peça" hitSlop={8} onPress={() => onRemove(part.key)}>
-              <Feather color="#d71929" name="trash-2" size={18} />
+            <Text style={styles.partName} variant="headline">
+              {part.name}
+            </Text>
+            <Pressable
+              accessibilityLabel="Remover peça"
+              accessibilityRole="button"
+              onPress={() => onRemove(part.key)}
+              style={styles.remove}
+            >
+              <Icon color={colors.danger} name="trash" size={18} />
             </Pressable>
           </View>
           <View style={styles.partRow}>
             <View style={styles.stepper}>
-              <Pressable
-                accessibilityLabel="Diminuir quantidade"
-                onPress={() => onChangeQuantity(part.key, -1)}
-                style={({ pressed }) => [styles.stepperButton, pressed && formStyles.pressed]}
-              >
-                <Feather color="#092542" name="minus" size={16} />
-              </Pressable>
-              <Text style={styles.stepperValue}>{part.quantity}</Text>
-              <Pressable
-                accessibilityLabel="Aumentar quantidade"
-                onPress={() => onChangeQuantity(part.key, 1)}
-                style={({ pressed }) => [styles.stepperButton, pressed && formStyles.pressed]}
-              >
-                <Feather color="#092542" name="plus" size={16} />
-              </Pressable>
+              <StepButton icon="minus" label="Diminuir quantidade" onPress={() => onChangeQuantity(part.key, -1)} />
+              <Text style={styles.stepperValue} variant="headline">
+                {part.quantity}
+              </Text>
+              <StepButton icon="plus" label="Aumentar quantidade" onPress={() => onChangeQuantity(part.key, 1)} />
             </View>
-            <Text style={styles.price}>{formatCurrency(part.price)}</Text>
+            <Text style={styles.price} variant="callout" weight="700">
+              {formatCurrency(part.price)}
+            </Text>
           </View>
         </View>
       ))}
@@ -43,44 +65,20 @@ export default function OrderPartsSection({ parts, partsTotal, onAdd, onRemove, 
 }
 
 const styles = StyleSheet.create({
-  emptyParts: { color: "#667994", fontSize: 14, marginBottom: 8 },
-  part: {
-    backgroundColor: "#f4f7fb",
-    borderRadius: 10,
-    marginBottom: 8,
-    padding: 12,
-  },
-  partName: { color: "#092542", flex: 1, fontSize: 15, fontWeight: "700", paddingRight: 8 },
-  partHead: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  partRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 10,
-  },
+  part: { backgroundColor: colors.background, borderRadius: radius.control, gap: 8, padding: 12 },
+  partHead: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  partName: { flex: 1, paddingRight: 8 },
+  remove: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
+  partRow: { alignItems: "center", flexDirection: "row", gap: 10 },
   stepper: {
     alignItems: "center",
-    borderColor: "#dce4ee",
-    borderRadius: 10,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.control,
     borderWidth: 1,
     flexDirection: "row",
   },
-  stepperButton: {
-    alignItems: "center",
-    height: 36,
-    justifyContent: "center",
-    width: 36,
-  },
-  stepperValue: {
-    color: "#092542",
-    fontSize: 16,
-    fontWeight: "800",
-    minWidth: 28,
-    textAlign: "center",
-  },
-  price: { color: "#092542", flex: 1, fontSize: 15, fontWeight: "800", textAlign: "right" },
+  stepperButton: { alignItems: "center", height: 48, justifyContent: "center", width: 48 },
+  stepperValue: { minWidth: 32, textAlign: "center" },
+  price: { flex: 1, textAlign: "right" },
 });

@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import Text from "../ui/Text";
+import { colors } from "../../theme";
 import DateField from "../DateField";
 import NativeSelect from "../NativeSelect";
 import { formatCurrency } from "../../utils/orders";
@@ -37,7 +39,11 @@ export default function OrderTotals({ edit, form, totals, onChange }) {
           onChange={(value) => onChange("deadline", value)}
           value={form.deadline}
         />
-        {edit ? <Text style={styles.hint}>Desconto e datas não podem ser alterados após a criação da OS.</Text> : null}
+        {edit ? (
+          <Text tone="muted" variant="footnote">
+            Desconto e datas não podem ser alterados após a criação da OS.
+          </Text>
+        ) : null}
       </Section>
       <Section highlight title="Resumo">
         <Summary label="Mão de obra" value={formatCurrency(totals.labor)} />
@@ -51,6 +57,5 @@ export default function OrderTotals({ edit, form, totals, onChange }) {
 }
 
 const styles = StyleSheet.create({
-  hint: { color: "#667994", fontSize: 13 },
-  rule: { backgroundColor: "#dce4ee", height: 1, marginTop: 12 },
+  rule: { backgroundColor: colors.hairline, height: StyleSheet.hairlineWidth },
 });

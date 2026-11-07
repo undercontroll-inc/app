@@ -1,35 +1,34 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AppShell from "../../../components/AppShell";
-import AppHeader from "../../../components/AppHeader";
 import OrderCard from "../../../components/OrderCard";
-import SearchField from "../../../components/SearchField";
 import { ActionMenuSheet, useActionMenu } from "../../../components/ActionMenu";
+import Banner from "../../../components/ui/Banner";
+import GlassFab from "../../../components/ui/GlassFab";
+import Segmented from "../../../components/ui/Segmented";
+import StateView from "../../../components/ui/StateView";
 import { useDeleteOrder, useInfiniteOrders, useUpdateOrderStatus } from "../../../hooks/queries/useOrders";
+import SearchField from "../../../components/SearchField";
 import useRefreshOnFocus from "../../../hooks/useRefreshOnFocus";
 import { getErrorMessage } from "../../../providers/api";
 import { ORDER_STATUS_API, isOrderCompleted, toOrderCard } from "../../../utils/orders";
+import { colors } from "../../../theme";
 
 const filters = ["Todos", "Pendentes", "Em análise", "Concluídos"];
 
 export default function OrdersScreen() {
-  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("Todos");
+  const [filterIndex, setFilterIndex] = useState(0);
   const [actionError, setActionError] = useState("");
   const menu = useActionMenu();
   const ordersQuery = useInfiniteOrders();
   const { mutate: updateStatus } = useUpdateOrderStatus();
   const { mutate: deleteOrderMutation } = useDeleteOrder();
-  const { fetchNextPage, hasNextPage, isFetchingNextPage } = ordersQuery;
-  const { refetch } = ordersQuery;
+  const { fetchNextPage, hasNextPage, isFetchingNextPage, refetch } = ordersQuery;
   useRefreshOnFocus(refetch);
 
   const orders = useMemo(() => (ordersQuery.data ?? []).map(toOrderCard), [ordersQuery.data]);
-  const loading = ordersQuery.isPending;
-  const error = ordersQuery.isError ? getErrorMessage(ordersQuery.error) : "";
+  const selectedFilter = filters[filterIndex];
 
   const visibleOrders = useMemo(
     () =>
@@ -47,160 +46,116 @@ export default function OrdersScreen() {
     [orders, search, selectedFilter],
   );
 
-  const fabBottom = Platform.OS === "ios" ? 16 + Math.max(insets.bottom, 8) : 22;
+  const toggleStatus = useCallback(
+    (order) => {
+      const completed = isOrderCompleted(order.status);
+      setActionError("");
+      updateStatus(
+        { orderId: order.id, status: ORDER_STATUS_API[completed ? "Pendente" : "Concluído"] },
+        { onError: (err) => setActionError(getErrorMessage(err)) },
+      );
+    },
+    [updateStatus],
+  );
 
-  function openNew() {
-    router.push("/orders/new");
-  }
+  const confirmDelete = useCallback(
+    (order) => {
+      Alert.alert(`Excluir OS #${order.id}?`, `A ordem de ${order.client} será removida.`, [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => {
+            setActionError("");
+            deleteOrderMutation(order.id, { onError: (err) => setActionError(getErrorMessage(err)) });
+          },
+        },
+      ]);
+    },
+    [deleteOrderMutation],
+  );
 
   const { show } = menu;
   const openOrderActions = useCallback(
     (order) => {
       const completed = isOrderCompleted(order.status);
-      const onError = (err) => setActionError(getErrorMessage(err));
       show({
         title: `OS #${order.id}`,
         message: order.client,
         options: [
-          {
-            label: completed ? "Marcar como pendente" : "Marcar como concluída",
-            onPress: () => {
-              setActionError("");
-              updateStatus(
-                { orderId: order.id, status: ORDER_STATUS_API[completed ? "Pendente" : "Concluído"] },
-                { onError },
-              );
-            },
-          },
-          {
-            label: "Excluir",
-            destructive: true,
-            onPress: () => {
-              setActionError("");
-              deleteOrderMutation(order.id, { onError });
-            },
-          },
+          { label: completed ? "Marcar como pendente" : "Marcar como concluída", onPress: () => toggleStatus(order) },
+          { label: "Excluir", destructive: true, onPress: () => confirmDelete(order) },
           { label: "Cancelar", cancel: true },
         ],
       });
     },
-    [deleteOrderMutation, show, updateStatus],
+    [confirmDelete, show, toggleStatus],
   );
 
   const openOrder = useCallback((order) => router.push(`/orders/${order.id}`), []);
 
   const renderItem = useCallback(
-    ({ item }) => <OrderCard onLongPress={openOrderActions} onPress={openOrder} order={item} />,
-    [openOrder, openOrderActions],
+    ({ item }) => (
+      <OrderCard
+        onDelete={confirmDelete}
+        onLongPress={openOrderActions}
+        onPress={openOrder}
+        onToggleStatus={toggleStatus}
+        order={item}
+      />
+    ),
+    [confirmDelete, openOrder, openOrderActions, toggleStatus],
   );
 
   const loadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  function renderEmpty() {
-    if (loading) {
-      return (
-        <View style={styles.state}>
-          <ActivityIndicator color="#ef7f19" />
-          <Text style={styles.stateText}>Carregando ordens...</Text>
-        </View>
-      );
-    }
-    if (error) {
-      return (
-        <View style={styles.state}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={() => refetch()} style={styles.retry}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
-          </Pressable>
-        </View>
-      );
-    }
-    return <Text style={styles.empty}>Nenhuma ordem de serviço encontrada.</Text>;
-  }
+  const showList = !ordersQuery.isPending && !ordersQuery.isError;
 
   return (
-    <AppShell>
-      <AppHeader />
+    <View style={styles.screen}>
       <FlatList
+        ListEmptyComponent={
+          <StateView
+            error={ordersQuery.isError ? getErrorMessage(ordersQuery.error) : null}
+            icon="wrench"
+            loading={ordersQuery.isPending}
+            loadingText="Carregando ordens..."
+            message={search ? "Tente buscar por outro nome ou número." : "Toque em “Nova O.S.” para começar."}
+            onRetry={refetch}
+            title="Nenhuma ordem encontrada"
+          />
+        }
+        ListFooterComponent={
+          isFetchingNextPage ? <ActivityIndicator color={colors.orange} style={styles.footer} /> : null
+        }
         ListHeaderComponent={
-          <View>
-            <Text style={styles.title}>Ordens de Serviço</Text>
-            <SearchField onChangeText={setSearch} placeholder="OS ou cliente" value={search} />
-            {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters}>
-              {filters.map((item) => (
-                <Pressable
-                  key={item}
-                  onPress={() => setSelectedFilter(item)}
-                  style={[styles.filter, selectedFilter === item && styles.activeFilter]}
-                >
-                  <Text style={[styles.filterText, selectedFilter === item && styles.activeFilterText]}>{item}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+          <View style={styles.header}>
+            <SearchField onChangeText={setSearch} placeholder="Buscar por OS, cliente ou aparelho" value={search} />
+            <Segmented onChange={setFilterIndex} selectedIndex={filterIndex} values={filters} />
+            {actionError ? <Banner message={actionError} tone="danger" /> : null}
           </View>
         }
         contentContainerStyle={styles.content}
-        data={loading || error ? [] : visibleOrders}
+        contentInsetAdjustmentBehavior="automatic"
+        data={showList ? visibleOrders : []}
         keyExtractor={(order) => order.id}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={renderEmpty}
-        ListFooterComponent={isFetchingNextPage ? <ActivityIndicator color="#ef7f19" style={styles.footer} /> : null}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         renderItem={renderItem}
       />
-      <Pressable
-        onPress={openNew}
-        style={({ pressed }) => [styles.newButton, { bottom: fabBottom }, pressed && styles.pressed]}
-      >
-        <Text style={styles.newButtonText}>＋ Nova O.S.</Text>
-      </Pressable>
+      <GlassFab label="Nova O.S." onPress={() => router.push("/orders/new")} testID="orders-new" />
       <ActionMenuSheet config={menu.config} onClose={menu.close} />
-    </AppShell>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120 },
-  title: { color: "#092542", fontSize: 22, fontWeight: "800", marginBottom: 12 },
-  filters: { flexGrow: 0, marginBottom: 12, marginTop: 12 },
-  filter: {
-    alignItems: "center",
-    borderColor: "#dce4ee",
-    borderRadius: 18,
-    borderWidth: 1,
-    marginRight: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  filterText: { color: "#667994", fontSize: 14 },
-  activeFilter: { backgroundColor: "#ef7f19", borderColor: "#ef7f19" },
-  activeFilterText: { color: "#fff", fontWeight: "700" },
-  newButton: {
-    alignSelf: "flex-end",
-    backgroundColor: "#ef7f19",
-    borderRadius: 28,
-    elevation: 8,
-    paddingHorizontal: 22,
-    paddingVertical: 16,
-    position: "absolute",
-    right: 16,
-    shadowColor: "#092542",
-    shadowOffset: { height: 4, width: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 6,
-  },
-  newButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  pressed: { opacity: 0.8 },
-  state: { alignItems: "center", paddingVertical: 32 },
-  stateText: { color: "#667994", fontSize: 15, marginTop: 12 },
+  screen: { backgroundColor: colors.background, flex: 1 },
+  content: { paddingBottom: 140, paddingHorizontal: 20, paddingTop: 8 },
+  header: { gap: 12, marginBottom: 16 },
   footer: { marginVertical: 16 },
-  actionError: { color: "#d71929", fontSize: 14, marginTop: 8 },
-  errorText: { color: "#d71929", fontSize: 15, textAlign: "center" },
-  retry: { marginTop: 12, padding: 10 },
-  retryText: { color: "#ef7f19", fontSize: 15, fontWeight: "700" },
-  empty: { color: "#667994", fontSize: 16, marginTop: 12, textAlign: "center" },
 });
