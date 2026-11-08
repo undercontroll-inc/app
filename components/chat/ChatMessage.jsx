@@ -1,6 +1,7 @@
 import { Fragment, memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import ChatBubble from "./ChatBubble";
+import ThinkingIndicator from "./ThinkingIndicator";
 import TypingIndicator from "./TypingIndicator";
 import Icon from "../ui/Icon";
 import { colors } from "../../theme";
@@ -102,7 +103,7 @@ function MessageBody({ message, onRetry, onLongPress }) {
   if (message.status === "pending" && !message.content) {
     return (
       <ChatBubble side="left" tone="assistant">
-        <TypingIndicator />
+        <ThinkingIndicator prompt={message.prompt} startedAt={message.createdAt} />
       </ChatBubble>
     );
   }

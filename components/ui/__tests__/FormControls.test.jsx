@@ -1,7 +1,21 @@
-import { ActionSheetIOS, Platform } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import NativeSelect from "../../NativeSelect";
 import Field from "../Field";
+import { FormSection, FormSegmentedRow, FormSwitchRow, FormTextRow, Stepper } from "../FormRows";
+
+jest.mock("@react-native-segmented-control/segmented-control", () => {
+  const { Pressable, Text, View } = jest.requireActual("react-native");
+  return function MockSegmentedControl({ values, onChange }) {
+    return (
+      <View>
+        {values.map((value, index) => (
+          <Pressable key={value} onPress={() => onChange({ nativeEvent: { selectedSegmentIndex: index } })}>
+            <Text>{value}</Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  };
+});
 
 describe("Field", () => {
   it("shows the label and the error instead of the hint", async () => {
@@ -13,28 +27,47 @@ describe("Field", () => {
   });
 });
 
-describe("NativeSelect", () => {
-  const originalOS = Platform.OS;
+describe("FormRows", () => {
+  it("renders inline label and input rows inside a titled section", async () => {
+    const onChangeText = jest.fn();
+    await render(
+      <FormSection footer="Opcional" title="Contato">
+        <FormTextRow label="Telefone" onChangeText={onChangeText} placeholder="(00) 00000-0000" value="" />
+      </FormSection>,
+    );
 
-  afterEach(() => {
-    Platform.OS = originalOS;
-    jest.restoreAllMocks();
+    expect(screen.getByText("CONTATO")).toBeTruthy();
+    expect(screen.getByText("Opcional")).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Telefone"), "11999990000");
+    expect(onChangeText).toHaveBeenCalledWith("11999990000");
   });
 
-  it("opens the native iOS action sheet and selects the tapped option", async () => {
-    Platform.OS = "ios";
-    const sheet = jest
-      .spyOn(ActionSheetIOS, "showActionSheetWithOptions")
-      .mockImplementation((_options, callback) => callback(1));
-    const onSelect = jest.fn();
+  it("selects an option in a segmented row", async () => {
+    const onChange = jest.fn();
+    await render(<FormSegmentedRow label="Voltagem" onChange={onChange} options={["127V", "220V"]} value="127V" />);
 
-    await render(<NativeSelect label="Voltagem" onSelect={onSelect} options={["127V", "220V"]} value="127V" />);
-    await fireEvent.press(screen.getByLabelText("Voltagem: 127V"));
+    await fireEvent.press(screen.getByText("220V"));
+    expect(onChange).toHaveBeenCalledWith("220V");
+  });
 
-    expect(sheet).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Voltagem", options: ["127V ✓", "220V", "Cancelar"], cancelButtonIndex: 2 }),
-      expect.any(Function),
+  it("turns the stepper minus into a remove action at the minimum", async () => {
+    const onDecrement = jest.fn();
+    const onIncrement = jest.fn();
+    await render(
+      <Stepper label="Compressor" onDecrement={onDecrement} onIncrement={onIncrement} removeOnMin value={1} />,
     );
-    expect(onSelect).toHaveBeenCalledWith("220V");
+
+    await fireEvent.press(screen.getByLabelText("Remover Compressor"));
+    await fireEvent.press(screen.getByLabelText("Aumentar Compressor"));
+    expect(onDecrement).toHaveBeenCalledTimes(1);
+    expect(onIncrement).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles a switch row", async () => {
+    const onValueChange = jest.fn();
+    await render(<FormSwitchRow label="OS concluída" onValueChange={onValueChange} testID="switch" value={false} />);
+
+    await fireEvent(screen.getByTestId("switch"), "valueChange", true);
+    expect(onValueChange).toHaveBeenCalledWith(true);
   });
 });

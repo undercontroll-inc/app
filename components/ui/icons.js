@@ -42,4 +42,5 @@ export const ICONS = {
   eyeOff: { sf: "eye.slash", feather: "eye-off" },
   tag: { sf: "tag.fill", feather: "tag" },
   bolt: { sf: "bolt.fill", feather: "zap" },
+  more: { sf: "ellipsis.circle", feather: "more-vertical" },
 };

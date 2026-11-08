@@ -22,11 +22,16 @@ function OrderCard({ order, onPress, onLongPress, onToggleStatus, onDelete }) {
   if (onDelete) actions.push({ label: "Excluir", icon: "trash", color: colors.danger, onPress: () => onDelete(order) });
 
   return (
-    <SwipeRow actions={actions} style={styles.wrap}>
+    <SwipeRow
+      accessibilityLabel={`Ordem ${order.id}, ${order.client}, ${order.status}`}
+      actions={actions}
+      onPress={() => onPress?.(order)}
+      style={styles.wrap}
+    >
       <Card
         accessibilityLabel={`Ordem ${order.id}, ${order.client}, ${order.status}`}
         onLongPress={Platform.OS === "ios" ? undefined : () => onLongPress?.(order)}
-        onPress={() => onPress?.(order)}
+        onPress={Platform.OS === "ios" ? undefined : () => onPress?.(order)}
         style={styles.card}
       >
         <View style={styles.top}>

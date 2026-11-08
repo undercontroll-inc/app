@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
-import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
+import { GestureDetector, useExclusiveGestures, usePanGesture, useTapGesture } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import Icon from "./Icon";
@@ -37,12 +37,23 @@ function Action({ action, index, count, armed }) {
   );
 }
 
-export default function SwipeRow({ actions = [], children, style, clipStyle, flat = false }) {
-  const enabled = Platform.OS === "ios" && actions.length > 0;
+export default function SwipeRow({
+  actions = [],
+  children,
+  style,
+  clipStyle,
+  flat = false,
+  onPress,
+  onPressIn,
+  accessibilityLabel,
+}) {
+  const enabled = Platform.OS === "ios" && (actions.length > 0 || Boolean(onPress));
+  const swipeEnabled = Platform.OS === "ios" && actions.length > 0;
   const x = useSharedValue(0);
   const start = useSharedValue(0);
   const rowWidth = useSharedValue(0);
   const armed = useSharedValue(0);
+  const pressed = useSharedValue(0);
   const [open, setOpen] = useState(false);
   const token = useRef({});
   const total = actions.length * ACTION_WIDTH;
@@ -80,7 +91,7 @@ export default function SwipeRow({ actions = [], children, style, clipStyle, fla
   const armHaptic = useCallback(() => haptics.medium(), []);
 
   const pan = usePanGesture({
-    enabled,
+    enabled: swipeEnabled,
     activeOffsetX: [-14, 14],
     failOffsetY: [-12, 12],
     onActivate: () => {
@@ -117,7 +128,38 @@ export default function SwipeRow({ actions = [], children, style, clipStyle, fla
     },
   });
 
-  const contentStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() }] }));
+  const handleTap = useCallback(() => {
+    if (open) {
+      close();
+      return;
+    }
+    onPress?.();
+  }, [close, onPress, open]);
+
+  const tap = useTapGesture({
+    enabled: enabled && (Boolean(onPress) || open),
+    maxDuration: 600,
+    onBegin: () => {
+      "worklet";
+      pressed.set(withTiming(1, { duration: 60 }));
+      if (onPressIn) scheduleOnRN(onPressIn);
+    },
+    onActivate: () => {
+      "worklet";
+      scheduleOnRN(handleTap);
+    },
+    onFinalize: () => {
+      "worklet";
+      pressed.set(withTiming(0, { duration: 160 }));
+    },
+  });
+
+  const gesture = useExclusiveGestures(pan, tap);
+
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: 1 - pressed.get() * 0.15,
+    transform: [{ translateX: x.get() }, { scale: 1 - pressed.get() * 0.01 }],
+  }));
   const actionsStyle = useAnimatedStyle(() => ({ width: Math.max(-x.get(), 0) }));
 
   if (!enabled) return <View style={style}>{children}</View>;
@@ -142,12 +184,15 @@ export default function SwipeRow({ actions = [], children, style, clipStyle, fla
             <Action action={action} armed={armed} count={runnable.length} index={index} key={action.label} />
           ))}
         </Animated.View>
-        <GestureDetector gesture={pan}>
-          <Animated.View style={contentStyle}>
+        <GestureDetector gesture={gesture}>
+          <Animated.View
+            accessibilityLabel={accessibilityLabel}
+            accessibilityRole={onPress ? "button" : undefined}
+            accessible={Boolean(onPress)}
+            onAccessibilityTap={onPress}
+            style={contentStyle}
+          >
             {children}
-            {open ? (
-              <Pressable accessibilityLabel="Fechar ações" onPress={close} style={StyleSheet.absoluteFill} />
-            ) : null}
           </Animated.View>
         </GestureDetector>
       </View>

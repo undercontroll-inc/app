@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, TextInput } from "react-native";
 import { router } from "expo-router";
 import Button from "./ui/Button";
-import Field from "./ui/Field";
-import FormCard, { FieldRow } from "./ui/FormCard";
 import FormScreen from "./ui/FormScreen";
+import { FormMultilineRow, FormRow, FormSection, FormTextRow, FormValueRow, Stepper } from "./ui/FormRows";
 import Text from "./ui/Text";
 import { useComponent, useSaveComponent } from "../hooks/queries/useComponents";
 import { getErrorMessage } from "../providers/api";
 import { haptics } from "../utils/haptics";
+import { colors, MAX_FONT_SCALE } from "../theme";
 import {
   buildRegisterComponentPayload,
   buildUpdateComponentPayload,
@@ -30,6 +30,8 @@ export default function StockItemForm({ edit = false, componentId }) {
     setHydrated(true);
     setForm(componentToForm(componentQuery.data));
   }
+
+  const quantityValue = Number.parseInt(form.quantity, 10) || 0;
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -78,75 +80,99 @@ export default function StockItemForm({ edit = false, componentId }) {
       onCancel={() => router.back()}
       onRetry={componentQuery.refetch}
     >
-      <FormCard title="Item">
-        <Field
-          label="Nome do item"
+      <FormSection title="Peça">
+        <FormTextRow
+          autoFocus={!edit}
+          label="Nome"
           onChangeText={(value) => updateField("item", value)}
           placeholder="Nome do item"
           returnKeyType="next"
           value={form.item}
         />
-        <FieldRow>
-          <Field
-            label="Marca"
-            onChangeText={(value) => updateField("brand", value)}
-            placeholder="Marca"
-            style={styles.half}
-            value={form.brand}
-          />
-          <Field
-            label="Categoria"
-            onChangeText={(value) => updateField("category", value)}
-            placeholder="Categoria"
-            style={styles.half}
-            value={form.category}
-          />
-        </FieldRow>
-      </FormCard>
-      <FormCard title="Estoque e preço">
-        <FieldRow>
-          <Field
-            editable={!edit}
-            keyboardType="number-pad"
-            label="Quantidade"
-            onChangeText={(value) => updateField("quantity", value)}
-            placeholder="0"
-            style={styles.half}
-            value={form.quantity}
-          />
-          <Field
-            keyboardType="decimal-pad"
-            label="Preço (R$)"
-            onChangeText={(value) => updateField("price", value)}
-            placeholder="0,00"
-            style={styles.half}
-            value={form.price}
-          />
-        </FieldRow>
+        <FormTextRow
+          label="Marca"
+          onChangeText={(value) => updateField("brand", value)}
+          placeholder="Marca"
+          value={form.brand}
+        />
+        <FormTextRow
+          label="Categoria"
+          onChangeText={(value) => updateField("category", value)}
+          placeholder="Categoria"
+          value={form.category}
+        />
+      </FormSection>
+      <FormSection
+        footer={
+          edit
+            ? "A quantidade muda pelas peças usadas nas ordens e pelas notas importadas."
+            : "Quantas unidades você tem agora."
+        }
+        title="Estoque e preço"
+      >
         {edit ? (
-          <Text tone="muted" variant="footnote">
-            A quantidade muda pelas peças usadas nas ordens e pelas notas importadas.
-          </Text>
-        ) : null}
-        <Field
+          <FormValueRow label="Quantidade" value={`${form.quantity || 0} un.`} />
+        ) : (
+          <FormRow>
+            <Text style={styles.flex} variant="body">
+              Quantidade
+            </Text>
+            <Stepper
+              label="quantidade"
+              min={0}
+              onDecrement={() => updateField("quantity", String(Math.max(0, quantityValue - 1)))}
+              onIncrement={() => updateField("quantity", String(quantityValue + 1))}
+              value={
+                <TextInput
+                  accessibilityLabel="Quantidade"
+                  keyboardType="number-pad"
+                  maxFontSizeMultiplier={MAX_FONT_SCALE}
+                  onChangeText={(value) => updateField("quantity", value.replace(/\D/g, ""))}
+                  placeholder="0"
+                  placeholderTextColor={colors.subtle}
+                  selectTextOnFocus
+                  style={styles.quantityInput}
+                  value={form.quantity}
+                />
+              }
+            />
+          </FormRow>
+        )}
+        <FormTextRow
+          keyboardType="decimal-pad"
+          label="Preço"
+          onChangeText={(value) => updateField("price", value)}
+          placeholder="0,00"
+          prefix="R$"
+          value={form.price}
+        />
+        <FormTextRow
           label="Fornecedor"
           onChangeText={(value) => updateField("supplier", value)}
-          placeholder="Fornecedor"
+          placeholder="Opcional"
           value={form.supplier}
         />
-      </FormCard>
-      <FormCard title="Descrição" subtitle="Opcional">
-        <Field
-          multiline
+      </FormSection>
+      <FormSection title="Descrição">
+        <FormMultilineRow
           onChangeText={(value) => updateField("description", value)}
-          placeholder="Detalhes, modelo, observações"
+          placeholder="Modelo, compatibilidade, observações (opcional)"
           value={form.description}
         />
-      </FormCard>
+      </FormSection>
     </FormScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  half: { flex: 1 },
+  flex: { flex: 1 },
+  quantityInput: {
+    color: colors.text,
+    fontSize: 17,
+    fontVariant: ["tabular-nums"],
+    fontWeight: "600",
+    minWidth: 36,
+    paddingVertical: 6,
+    textAlign: "center",
+  },
 });

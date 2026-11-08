@@ -1,94 +1,115 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import Icon from "../ui/Icon";
 import Text from "../ui/Text";
-import { colors, radius } from "../../theme";
-import NativeSelect from "../NativeSelect";
+import { FormButtonRow, FormSection, FormSegmentedRow, FormTextRow, FormValueRow } from "../ui/FormRows";
 import { deviceSummary } from "../../utils/orderForm";
 import { formatCurrency } from "../../utils/orders";
-import { Field, Section, Summary } from "./OrderFormParts";
+import { colors } from "../../theme";
+
+const VOLTAGES = ["127V", "220V"];
+
+function CollapseToggle({ collapsed, onPress }) {
+  return (
+    <Pressable
+      accessibilityLabel={collapsed ? "Mostrar detalhes do aparelho" : "Ocultar detalhes do aparelho"}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: !collapsed }}
+      hitSlop={10}
+      onPress={onPress}
+      style={styles.toggle}
+    >
+      <Text tone="accent" variant="subhead" weight="600">
+        {collapsed ? "Mostrar" : "Ocultar"}
+      </Text>
+      <Icon color={colors.orange} name={collapsed ? "chevronDown" : "chevronUp"} size={13} />
+    </Pressable>
+  );
+}
 
 export default function OrderDevicesSection({ devices, collapsed, laborTotal, onAdd, onRemove, onToggle, onChange }) {
   return (
-    <Section action="Adicionar" onAction={onAdd} title="Aparelhos">
+    <View style={styles.root}>
       {devices.map((device) => {
         const isCollapsed = Boolean(collapsed[device.key]);
         return (
-          <View key={device.key} style={styles.deviceCard}>
-            <View style={styles.deviceHeading}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ expanded: !isCollapsed }}
-                onPress={() => onToggle(device.key)}
-                style={styles.deviceToggle}
-              >
-                <Text style={styles.deviceTitle} variant="headline">
-                  {deviceSummary(device)}
-                </Text>
-                <Icon color={colors.muted} name={isCollapsed ? "chevronDown" : "chevronUp"} size={16} />
-              </Pressable>
-              <Pressable
-                accessibilityLabel="Remover aparelho"
-                onPress={() => onRemove(device.key)}
-                style={styles.iconButton}
-              >
-                <Icon color={colors.danger} name="trash" size={18} />
-              </Pressable>
-            </View>
-            {!isCollapsed ? (
-              <>
-                <Field
+          <FormSection
+            action={<CollapseToggle collapsed={isCollapsed} onPress={() => onToggle(device.key)} />}
+            key={device.key}
+            plainTitle
+            title={deviceSummary(device)}
+          >
+            {isCollapsed ? (
+              <FormValueRow label="Mão de obra" value={formatCurrency(device.labor)} />
+            ) : (
+              [
+                <FormTextRow
+                  key="appliance"
                   label="Aparelho"
                   onChangeText={(value) => onChange(device.key, "appliance", value)}
-                  placeholder="Tipo do aparelho"
+                  placeholder="Ex.: Geladeira"
                   value={device.appliance}
-                />
-                <Field
+                />,
+                <FormTextRow
+                  key="brand"
                   label="Marca"
                   onChangeText={(value) => onChange(device.key, "brand", value)}
+                  placeholder="Ex.: Consul"
                   value={device.brand}
-                />
-                <Field
+                />,
+                <FormTextRow
+                  key="model"
                   label="Modelo"
                   onChangeText={(value) => onChange(device.key, "model", value)}
+                  placeholder="Ex.: CRM56"
                   value={device.model}
-                />
-                <NativeSelect
+                />,
+                <FormSegmentedRow
+                  key="voltage"
                   label="Voltagem"
-                  onSelect={(value) => onChange(device.key, "voltage", value)}
-                  options={["127V", "220V"]}
+                  onChange={(value) => onChange(device.key, "voltage", value)}
+                  options={
+                    VOLTAGES.includes(device.voltage) || !device.voltage ? VOLTAGES : [...VOLTAGES, device.voltage]
+                  }
                   value={device.voltage}
-                />
-                <Field
-                  label="Nº de Série"
+                />,
+                <FormTextRow
+                  autoCapitalize="characters"
+                  key="serial"
+                  label="Nº de série"
                   onChangeText={(value) => onChange(device.key, "serial", value)}
+                  placeholder="Opcional"
                   value={device.serial}
-                />
-                <Field
+                />,
+                <FormTextRow
+                  key="labor"
                   keyboardType="decimal-pad"
-                  label="Valor Mão de Obra (R$)"
+                  label="Mão de obra"
                   onChangeText={(value) => onChange(device.key, "labor", value)}
+                  placeholder="0,00"
+                  prefix="R$"
                   value={String(device.labor ?? "")}
-                />
-              </>
-            ) : null}
-          </View>
+                />,
+                <FormButtonRow
+                  icon="trash"
+                  key="remove"
+                  label="Remover aparelho"
+                  onPress={() => onRemove(device.key)}
+                  tone="danger"
+                />,
+              ]
+            )}
+          </FormSection>
         );
       })}
-      <Summary label="Subtotal de mão de obra" value={formatCurrency(laborTotal)} />
-    </Section>
+      <FormSection>
+        <FormButtonRow label="Adicionar aparelho" onPress={onAdd} testID="order-add-device" />
+        <FormValueRow label="Subtotal de mão de obra" tone="default" value={formatCurrency(laborTotal)} />
+      </FormSection>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  deviceCard: {
-    backgroundColor: colors.background,
-    borderRadius: radius.control,
-    gap: 14,
-    marginBottom: 4,
-    padding: 12,
-  },
-  deviceHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  deviceToggle: { alignItems: "center", flex: 1, flexDirection: "row", gap: 8, minHeight: 48, paddingRight: 8 },
-  deviceTitle: { flex: 1 },
-  iconButton: { alignItems: "center", height: 48, justifyContent: "center", width: 48 },
+  root: { gap: 20 },
+  toggle: { alignItems: "center", flexDirection: "row", gap: 4, minHeight: 32 },
 });

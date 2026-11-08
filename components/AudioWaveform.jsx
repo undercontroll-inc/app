@@ -31,7 +31,7 @@ function Bar({ level }) {
   );
 }
 
-export default function AudioWaveform({ metering, active, tick }) {
+export default function AudioWaveform({ metering, active, tick, compact = false }) {
   const [levels, setLevels] = useState(idleLevels);
   const [sample, setSample] = useState({ active, metering, tick });
 
@@ -41,7 +41,7 @@ export default function AudioWaveform({ metering, active, tick }) {
   }
 
   return (
-    <View accessibilityLabel="Nível do áudio" style={styles.track}>
+    <View accessibilityLabel="Nível do áudio" style={[styles.track, compact && styles.compact]}>
       {levels.map((level, index) => (
         <Bar key={index} level={level} />
       ))}
@@ -50,6 +50,7 @@ export default function AudioWaveform({ metering, active, tick }) {
 }
 
 const styles = StyleSheet.create({
+  compact: { backgroundColor: "transparent", flex: 1, height: 34, paddingHorizontal: 2, paddingVertical: 2 },
   track: {
     alignItems: "center",
     backgroundColor: colors.background,

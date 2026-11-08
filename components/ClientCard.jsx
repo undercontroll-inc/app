@@ -11,11 +11,11 @@ import { colors } from "../theme";
 function ClientCard({ client, onPress, onLongPress, actions = [] }) {
   const name = formatUserName(client);
   return (
-    <SwipeRow actions={actions} style={styles.wrap}>
+    <SwipeRow actions={actions} onPress={() => onPress?.(client)} style={styles.wrap}>
       <Card
         accessibilityLabel={name}
         onLongPress={Platform.OS === "ios" ? undefined : () => onLongPress?.(client)}
-        onPress={() => onPress?.(client)}
+        onPress={Platform.OS === "ios" ? undefined : () => onPress?.(client)}
         style={styles.card}
       >
         <Avatar name={name} size={48} uri={client.avatarUrl} />

@@ -17,7 +17,7 @@ function ConversationRow({ conversation, onPress, onPressIn, onLongPress, last }
         </View>
       }
       onLongPress={onLongPress ? () => onLongPress(conversation) : undefined}
-      onPress={() => onPress(conversation)}
+      onPress={onPress ? () => onPress(conversation) : undefined}
       onPressIn={onPressIn ? () => onPressIn(conversation) : undefined}
       subtitle={conversation.preview || "Sem mensagens"}
       subtitleLines={1}

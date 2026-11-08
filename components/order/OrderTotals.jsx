@@ -1,61 +1,56 @@
 import { StyleSheet, View } from "react-native";
-import Text from "../ui/Text";
-import { colors } from "../../theme";
-import DateField from "../DateField";
-import NativeSelect from "../NativeSelect";
+import { FormDateRow, FormSection, FormSegmentedRow, FormTextRow, FormValueRow } from "../ui/FormRows";
 import { formatCurrency } from "../../utils/orders";
-import { Field, Section, Summary } from "./OrderFormParts";
+
+const WARRANTIES = ["30 dias", "60 dias", "90 dias"];
 
 export default function OrderTotals({ edit, form, totals, onChange }) {
   return (
-    <>
-      <Section title={edit ? "Desconto" : "Garantia e desconto"}>
+    <View style={styles.root}>
+      <FormSection
+        footer={edit ? "Garantia, desconto e datas não podem ser alterados depois da OS criada." : undefined}
+        title="Orçamento"
+      >
         {!edit ? (
-          <NativeSelect
+          <FormSegmentedRow
             label="Garantia"
-            onSelect={(value) => onChange("warranty", value)}
-            options={["30 dias", "60 dias", "90 dias"]}
+            onChange={(value) => onChange("warranty", value)}
+            options={WARRANTIES}
             value={form.warranty}
           />
         ) : null}
-        <Field
+        <FormTextRow
           editable={!edit}
           keyboardType="decimal-pad"
           label="Desconto"
           onChangeText={(value) => onChange("discount", value)}
+          placeholder="0,00"
+          prefix="R$"
           value={form.discount}
         />
-      </Section>
-      <Section title="Datas">
-        <DateField
+        <FormDateRow
           disabled={edit}
-          label="Data de recebimento"
+          label="Recebimento"
           onChange={(value) => onChange("receivedAt", value)}
           value={form.receivedAt}
         />
-        <DateField
+        <FormDateRow
           disabled={edit}
-          label="Data de retirada"
+          label="Retirada"
           onChange={(value) => onChange("deadline", value)}
           value={form.deadline}
         />
-        {edit ? (
-          <Text tone="muted" variant="footnote">
-            Desconto e datas não podem ser alterados após a criação da OS.
-          </Text>
-        ) : null}
-      </Section>
-      <Section highlight title="Resumo">
-        <Summary label="Mão de obra" value={formatCurrency(totals.labor)} />
-        <Summary label="Peças" value={formatCurrency(totals.parts)} />
-        <Summary label="Desconto" red value={`- ${formatCurrency(totals.discount)}`} />
-        <View style={styles.rule} />
-        <Summary label="Total da OS" total value={formatCurrency(totals.total)} />
-      </Section>
-    </>
+      </FormSection>
+      <FormSection title="Resumo">
+        <FormValueRow label="Mão de obra" value={formatCurrency(totals.labor)} />
+        <FormValueRow label="Peças" value={formatCurrency(totals.parts)} />
+        <FormValueRow label="Desconto" tone="danger" value={`- ${formatCurrency(totals.discount)}`} />
+        <FormValueRow label="Total da OS" strong tone="accent" value={formatCurrency(totals.total)} />
+      </FormSection>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  rule: { backgroundColor: colors.hairline, height: StyleSheet.hairlineWidth },
+  root: { gap: 20 },
 });

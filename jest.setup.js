@@ -33,11 +33,11 @@ jest.mock("expo-document-picker", () => ({
 }));
 jest.mock("expo-symbols", () => ({ SymbolView: ({ fallback }) => fallback ?? null }));
 jest.mock("react-native-reanimated", () => {
-  const { View } = jest.requireActual("react-native");
+  const { Text, View } = jest.requireActual("react-native");
   const layoutAnimation = new Proxy({}, { get: () => () => layoutAnimation });
   return {
     __esModule: true,
-    default: { View },
+    default: { Text, View },
     useSharedValue: (initial) => {
       const shared = { value: initial };
       shared.get = () => shared.value;
@@ -52,7 +52,7 @@ jest.mock("react-native-reanimated", () => {
     withDelay: (_delay, value) => value,
     withSequence: (...values) => values[values.length - 1],
     cancelAnimation: () => {},
-    Easing: { inOut: () => () => 0, quad: () => 0 },
+    Easing: { inOut: () => () => 0, out: () => () => 0, quad: () => 0, linear: () => 0 },
     FadeIn: layoutAnimation,
     FadeInDown: layoutAnimation,
     FadeInUp: layoutAnimation,
